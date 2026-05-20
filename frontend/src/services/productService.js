@@ -1,0 +1,35 @@
+import api from './api.js';
+
+export const getProductsAPI = async (category = '') => {
+  const response = await api.get(`/products${category ? `?category=${category}` : ''}`);
+  return response.data;
+};
+
+export const getProductByIdAPI = async (id) => {
+  const response = await api.get(`/products/${id}`);
+  return response.data;
+};
+
+export const createProductAPI = async (formData) => {
+  // formData hỗ trợ upload ảnh (multipart/form-data)
+  const response = await api.post('/products', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+  return response.data;
+};
+
+export const updateProductAPI = async (id, formData) => {
+  const response = await api.put(`/products/${id}`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+  return response.data;
+};
+
+export const deleteProductAPI = async (id) => {
+  const response = await api.delete(`/products/${id}`);
+  return response.data;
+};
