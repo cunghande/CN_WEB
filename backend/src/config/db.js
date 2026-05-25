@@ -1,7 +1,13 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import mysql from 'mysql2/promise';
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Luôn đọc backend/.env dù lệnh được chạy từ thư mục gốc hay từ backend.
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',

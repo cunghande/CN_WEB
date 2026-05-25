@@ -1,24 +1,42 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { LogOut, Menu, ShoppingBag, ShieldCheck, User, X } from 'lucide-react';
-import { logout } from '../../redux/slices/authSlice.js';
+import {
+  Bell,
+  LogOut,
+  Menu,
+  Moon,
+  ShoppingBag,
+  ShieldCheck,
+  Sun,
+  User,
+  X
+} from 'lucide-react';
+import { logout, setTheme } from '../../redux/slices/authSlice.js';
+import { fetchNotifications } from '../../redux/slices/notificationSlice.js';
+import { markAllNotificationsReadAPI } from '../../services/notificationService.js';
 
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { user } = useSelector((state) => state.auth);
+  const [notificationOpen, setNotificationOpen] = useState(false);
+  const { user, theme } = useSelector((state) => state.auth);
   const { items } = useSelector((state) => state.cart);
+  const { items: notifications } = useSelector((state) => state.notifications);
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
 
   const totalCartItems = items.reduce((sum, item) => sum + item.quantity, 0);
-
-  const navLinks = [
+  const unreadCount = notifications.filter((item) => !item.is_read).length;
+  const navLinks = useMemo(() => [
     { name: 'Trang chủ', path: '/' },
     { name: 'Sản phẩm', path: '/products' },
-    { name: 'Đơn hàng', path: '/orders' }
-  ];
+    { name: 'Đơn hàng', path: '/orders', private: true }
+  ], []);
+
+  useEffect(() => {
+    if (user) dispatch(fetchNotifications());
+  }, [dispatch, user]);
 
   const handleLogout = () => {
     dispatch(logout());
@@ -26,15 +44,32 @@ const Navbar = () => {
     navigate('/');
   };
 
+  const handleToggleTheme = () => {
+    dispatch(setTheme(theme === 'dark' ? 'light' : 'dark'));
+  };
+
+  const handleOpenNotifications = async () => {
+    setNotificationOpen((open) => !open);
+    if (!notificationOpen && unreadCount > 0) {
+      await markAllNotificationsReadAPI();
+      dispatch(fetchNotifications());
+    }
+  };
+
   const renderLink = (link) => {
-    const isActive = location.pathname === link.path;
+    if (link.private && !user) return null;
+    const isActive = location.pathname === link.path || (link.path !== '/' && location.pathname.startsWith(link.path));
 
     return (
       <Link
         key={link.path}
         to={link.path}
         onClick={() => setMobileOpen(false)}
-        className={`text-sm font-semibold transition ${isActive ? 'text-premium-700' : 'text-slate-600 hover:text-slate-950'}`}
+        className={`text-sm font-semibold transition ${
+          isActive
+            ? 'text-premium-700 dark:text-premium-300'
+            : 'text-slate-600 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white'
+        }`}
       >
         {link.name}
       </Link>
@@ -42,13 +77,13 @@ const Navbar = () => {
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-950/92">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
             <span className="grid h-9 w-9 place-items-center rounded-md bg-premium-700 text-sm font-black text-white">LW</span>
-            <span className="text-lg font-black tracking-wide text-slate-950">
-              LUXURY<span className="text-premium-700">WEAR</span>
+            <span className="text-lg font-black tracking-wide text-slate-950 dark:text-white">
+              LUXURY<span className="text-premium-700 dark:text-premium-300">WEAR</span>
             </span>
           </Link>
 
@@ -57,7 +92,7 @@ const Navbar = () => {
             {user?.role === 'admin' && (
               <Link
                 to="/admin/dashboard"
-                className="inline-flex items-center gap-2 rounded-md bg-premium-50 px-3 py-2 text-sm font-bold text-premium-800 hover:bg-premium-100"
+                className="inline-flex items-center gap-2 rounded-md bg-premium-50 px-3 py-2 text-sm font-bold text-premium-800 hover:bg-premium-100 dark:bg-premium-900/35 dark:text-premium-200"
               >
                 <ShieldCheck className="h-4 w-4" />
                 Quản trị
@@ -66,9 +101,54 @@ const Navbar = () => {
           </nav>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleToggleTheme}
+              className="rounded-md p-2 text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+              aria-label="Đổi giao diện sáng/tối"
+            >
+              {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </button>
+
+            {user && (
+              <div className="relative">
+                <button
+                  onClick={handleOpenNotifications}
+                  className="relative rounded-md p-2 text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                  aria-label="Thông báo"
+                >
+                  <Bell className="h-5 w-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+                {notificationOpen && (
+                  <div className="absolute right-0 mt-3 w-80 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
+                    <div className="border-b border-slate-100 px-4 py-3 text-sm font-black text-slate-950 dark:border-slate-800 dark:text-white">
+                      Thông báo đơn hàng
+                    </div>
+                    <div className="max-h-80 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className="px-4 py-5 text-sm text-slate-500 dark:text-slate-400">Chưa có thông báo mới.</div>
+                      ) : notifications.slice(0, 6).map((item) => (
+                        <div key={item.id} className="border-b border-slate-100 px-4 py-3 last:border-0 dark:border-slate-800">
+                          <div className="text-sm font-bold text-slate-900 dark:text-white">{item.title}</div>
+                          <div className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{item.message}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <Link to="/account/notifications" onClick={() => setNotificationOpen(false)} className="block bg-slate-50 px-4 py-3 text-center text-xs font-bold text-premium-700 hover:bg-slate-100 dark:bg-slate-950 dark:text-premium-300 dark:hover:bg-slate-800">
+                      Xem tất cả
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
+
             <Link
               to="/cart"
-              className="relative rounded-md p-2 text-slate-700 hover:bg-slate-100 hover:text-premium-700"
+              className="relative rounded-md p-2 text-slate-700 hover:bg-slate-100 hover:text-premium-700 dark:text-slate-200 dark:hover:bg-slate-800"
               aria-label="Giỏ hàng"
             >
               <ShoppingBag className="h-5 w-5" />
@@ -81,13 +161,22 @@ const Navbar = () => {
 
             {user ? (
               <div className="hidden items-center gap-3 md:flex">
-                <div className="text-right">
-                  <div className="text-xs font-bold text-slate-950">{user.full_name}</div>
-                  <div className="text-[11px] capitalize text-slate-500">{user.role}</div>
-                </div>
+                <Link to="/account" className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800">
+                  {user.avatar_url ? (
+                    <img src={user.avatar_url} alt={user.full_name} className="h-8 w-8 rounded-full object-cover" />
+                  ) : (
+                    <span className="grid h-8 w-8 place-items-center rounded-full bg-slate-200 text-xs font-black text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                      {user.full_name?.charAt(0) || 'U'}
+                    </span>
+                  )}
+                  <div className="text-right">
+                    <div className="text-xs font-bold text-slate-950 dark:text-white">{user.full_name}</div>
+                    <div className="text-[11px] capitalize text-slate-500 dark:text-slate-400">{user.role}</div>
+                  </div>
+                </Link>
                 <button
                   onClick={handleLogout}
-                  className="rounded-md p-2 text-slate-500 hover:bg-red-50 hover:text-red-600"
+                  className="rounded-md p-2 text-slate-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/35"
                   aria-label="Đăng xuất"
                 >
                   <LogOut className="h-5 w-5" />
@@ -105,7 +194,7 @@ const Navbar = () => {
 
             <button
               onClick={() => setMobileOpen((open) => !open)}
-              className="rounded-md p-2 text-slate-700 hover:bg-slate-100 md:hidden"
+              className="rounded-md p-2 text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800 md:hidden"
               aria-label="Mở menu"
             >
               {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -114,19 +203,20 @@ const Navbar = () => {
         </div>
 
         {mobileOpen && (
-          <div className="space-y-4 border-t border-slate-100 py-4 md:hidden">
+          <div className="space-y-4 border-t border-slate-100 py-4 dark:border-slate-800 md:hidden">
             <nav className="flex flex-col gap-4">
               {navLinks.map(renderLink)}
+              {user && renderLink({ name: 'Tài khoản', path: '/account' })}
               {user?.role === 'admin' && renderLink({ name: 'Quản trị', path: '/admin/dashboard' })}
             </nav>
-            <div className="border-t border-slate-100 pt-4">
+            <div className="border-t border-slate-100 pt-4 dark:border-slate-800">
               {user ? (
                 <button onClick={handleLogout} className="inline-flex items-center gap-2 text-sm font-bold text-red-600">
                   <LogOut className="h-4 w-4" />
                   Đăng xuất
                 </button>
               ) : (
-                <Link onClick={() => setMobileOpen(false)} to="/?login=true" className="inline-flex items-center gap-2 text-sm font-bold text-premium-700">
+                <Link onClick={() => setMobileOpen(false)} to="/?login=true" className="inline-flex items-center gap-2 text-sm font-bold text-premium-700 dark:text-premium-300">
                   <User className="h-4 w-4" />
                   Đăng nhập
                 </Link>

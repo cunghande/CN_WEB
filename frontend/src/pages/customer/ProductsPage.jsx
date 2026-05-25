@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Check, Eye, Search, ShoppingBag, SlidersHorizontal } from 'lucide-react';
 import useCart from '../../hooks/useCart.js';
 import useProduct from '../../hooks/useProduct.js';
@@ -143,7 +143,7 @@ const ProductsPage = () => {
                       </div>
                       <div className="space-y-3 p-4">
                         <div>
-                          <h3 className="line-clamp-1 font-black text-slate-950">{product.name}</h3>
+                          <Link to={`/products/${product.id}`} className="line-clamp-1 font-black text-slate-950 hover:text-premium-700">{product.name}</Link>
                           <p className="mt-1 line-clamp-2 text-sm leading-5 text-slate-500">{product.description || 'Sản phẩm thời trang dễ phối đồ.'}</p>
                         </div>
                         <div className="flex items-center justify-between border-t border-slate-100 pt-3">
@@ -155,6 +155,7 @@ const ProductsPage = () => {
                             <ShoppingBag className="h-4 w-4" />
                             Chọn
                           </Button>
+                          <Link to={`/products/${product.id}`} className="text-xs font-bold text-premium-700 hover:text-premium-900">Chi tiết</Link>
                         </div>
                       </div>
                     </article>

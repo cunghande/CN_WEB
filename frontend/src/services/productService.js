@@ -33,3 +33,18 @@ export const deleteProductAPI = async (id) => {
   const response = await api.delete(`/products/${id}`);
   return response.data;
 };
+
+export const toggleProductLikeAPI = async (id) => {
+  const response = await api.post(`/products/${id}/like`);
+  return response.data;
+};
+
+export const addProductCommentAPI = async (id, content) => {
+  const response = await api.post(`/products/${id}/comments`, { content });
+  return response.data;
+};
+
+export const addProductReviewAPI = async (id, reviewData) => {
+  const response = await api.post(`/products/${id}/reviews`, reviewData);
+  return response.data;
+};

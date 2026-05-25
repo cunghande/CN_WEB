@@ -8,6 +8,8 @@ import ManageProducts from '../pages/admin/ManageProducts.jsx';
 import CartPage from '../pages/customer/CartPage.jsx';
 import HomePage from '../pages/customer/HomePage.jsx';
 import OrdersPage from '../pages/customer/OrdersPage.jsx';
+import AccountPage from '../pages/customer/AccountPage.jsx';
+import ProductDetailPage from '../pages/customer/ProductDetailPage.jsx';
 import ProductsPage from '../pages/customer/ProductsPage.jsx';
 import PrivateRoute from './PrivateRoute.jsx';
 
@@ -31,8 +33,14 @@ const AppRouter = () => {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/products" element={<ProductsPage />} />
+            <Route path="/products/:id" element={<ProductDetailPage />} />
             <Route path="/cart" element={<CartPage />} />
             <Route path="/orders" element={<OrdersPage />} />
+            <Route path="/account" element={<PrivateRoute><AccountPage /></PrivateRoute>} />
+            <Route path="/account/profile" element={<PrivateRoute><AccountPage /></PrivateRoute>} />
+            <Route path="/account/addresses" element={<PrivateRoute><AccountPage /></PrivateRoute>} />
+            <Route path="/account/security" element={<PrivateRoute><AccountPage /></PrivateRoute>} />
+            <Route path="/account/notifications" element={<PrivateRoute><AccountPage /></PrivateRoute>} />
 
             <Route path="/admin/dashboard" element={<PrivateRoute requireAdmin><Dashboard /></PrivateRoute>} />
             <Route path="/admin/products" element={<PrivateRoute requireAdmin><ManageProducts /></PrivateRoute>} />

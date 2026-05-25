@@ -7,7 +7,10 @@ class User {
   }
 
   static async findById(id) {
-    const [rows] = await db.execute('SELECT id, full_name, email, role, created_at FROM users WHERE id = ?', [id]);
+    const [rows] = await db.execute(
+      'SELECT id, full_name, email, role, avatar_url, phone, theme_preference, created_at FROM users WHERE id = ?',
+      [id]
+    );
     return rows[0];
   }
 
@@ -21,8 +24,27 @@ class User {
   }
 
   static async findAll() {
-    const [rows] = await db.execute('SELECT id, full_name, email, role, created_at FROM users ORDER BY id DESC');
+    const [rows] = await db.execute('SELECT id, full_name, email, role, avatar_url, phone, theme_preference, created_at FROM users ORDER BY id DESC');
     return rows;
+  }
+
+  static async updateProfile(id, profileData) {
+    const { full_name, phone, theme_preference } = profileData;
+    await db.execute(
+      'UPDATE users SET full_name = ?, phone = ?, theme_preference = ? WHERE id = ?',
+      [full_name, phone || null, theme_preference || 'light', id]
+    );
+    return this.findById(id);
+  }
+
+  static async updatePassword(id, hashedPassword) {
+    await db.execute('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, id]);
+    return true;
+  }
+
+  static async updateAvatar(id, avatarUrl) {
+    await db.execute('UPDATE users SET avatar_url = ? WHERE id = ?', [avatarUrl, id]);
+    return this.findById(id);
   }
 }
 

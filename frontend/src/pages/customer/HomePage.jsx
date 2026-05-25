@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
-import { ArrowRight, Check, Eye, PackageCheck, ShieldCheck, ShoppingBag, Sparkles, Truck, User } from 'lucide-react';
+import { ArrowRight, Check, Eye, Heart, PackageCheck, ShieldCheck, ShoppingBag, Sparkles, Star, Truck, User } from 'lucide-react';
 import useAuth from '../../hooks/useAuth.js';
 import useCart from '../../hooks/useCart.js';
 import useProduct from '../../hooks/useProduct.js';
@@ -14,7 +14,25 @@ import { formatPrice } from '../../utils/formatPrice.js';
 import { getImageUrl } from '../../utils/imageUrl.js';
 import { getLowestStockVariant, getProductStock } from '../../utils/productHelpers.js';
 
-const fallbackImage = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=700&q=80';
+const fallbackImage = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=900&q=80';
+
+const heroSlides = [
+  {
+    title: 'Bộ sưu tập công sở mới',
+    subtitle: 'Form gọn, chất vải dễ mặc, phù hợp cho khách hàng thích phong cách chỉn chu hằng ngày.',
+    image: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1920&q=85'
+  },
+  {
+    title: 'Streetwear năng động',
+    subtitle: 'Áo khoác, hoodie, sneaker và phụ kiện được phân nhóm rõ để bán hàng nhanh hơn.',
+    image: 'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1920&q=85'
+  },
+  {
+    title: 'Quản lý tồn kho theo biến thể',
+    subtitle: 'Mỗi sản phẩm có size, màu, tồn kho, đánh giá, bình luận và hashtag để demo nghiệp vụ đầy đủ.',
+    image: 'https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1920&q=85'
+  }
+];
 
 const HomePage = () => {
   const { products, loading } = useProduct();
@@ -23,6 +41,7 @@ const HomePage = () => {
   const dispatch = useDispatch();
   const [searchParams, setSearchParams] = useSearchParams();
 
+  const [activeSlide, setActiveSlide] = useState(0);
   const [quickViewProduct, setQuickViewProduct] = useState(null);
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [quantity, setQuantity] = useState(1);
@@ -44,6 +63,13 @@ const HomePage = () => {
       setSearchParams(searchParams);
     }
   }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setActiveSlide((current) => (current + 1) % heroSlides.length);
+    }, 5200);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const featuredProducts = useMemo(() => products.slice(0, 8), [products]);
 
@@ -88,28 +114,31 @@ const HomePage = () => {
     }
   };
 
+  const slide = heroSlides[activeSlide];
+
   return (
-    <div className="bg-slate-50">
+    <div className="bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-white">
       <section className="relative overflow-hidden bg-slate-950">
-        <img
-          src="https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1920&q=85"
-          alt="Bộ sưu tập thời trang"
-          className="absolute inset-0 h-full w-full object-cover opacity-55"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/80 to-slate-950/10" />
+        {heroSlides.map((item, index) => (
+          <img
+            key={item.image}
+            src={item.image}
+            alt={item.title}
+            className={`absolute inset-0 h-full w-full object-cover transition duration-700 ${
+              index === activeSlide ? 'opacity-60 scale-100' : 'opacity-0 scale-105'
+            }`}
+          />
+        ))}
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/82 to-slate-950/15" />
 
         <div className="relative mx-auto grid min-h-[620px] max-w-7xl items-center px-4 py-16 sm:px-6 lg:px-8">
           <div className="max-w-2xl text-white">
             <div className="mb-5 inline-flex items-center gap-2 rounded-md bg-white/10 px-3 py-2 text-xs font-bold uppercase tracking-wide backdrop-blur">
               <Sparkles className="h-4 w-4 text-premium-300" />
-              Bộ sưu tập 2026
+              LuxuryWear 2026
             </div>
-            <h1 className="text-4xl font-black leading-tight sm:text-6xl">
-              Quản lý và mua sắm thời trang trong một trải nghiệm hiện đại
-            </h1>
-            <p className="mt-5 max-w-xl text-base leading-7 text-slate-200">
-              Sản phẩm rõ danh mục, size, màu, tồn kho và quy trình đặt hàng COD phù hợp cho demo shop quần áo chuyên nghiệp.
-            </p>
+            <h1 className="text-4xl font-black leading-tight sm:text-6xl">{slide.title}</h1>
+            <p className="mt-5 max-w-xl text-base leading-7 text-slate-200">{slide.subtitle}</p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link to="/products">
                 <Button size="lg">
@@ -124,6 +153,16 @@ const HomePage = () => {
                 </Button>
               )}
             </div>
+            <div className="mt-10 flex gap-2">
+              {heroSlides.map((item, index) => (
+                <button
+                  key={item.title}
+                  onClick={() => setActiveSlide(index)}
+                  className={`h-2.5 rounded-full transition ${index === activeSlide ? 'w-10 bg-white' : 'w-2.5 bg-white/45 hover:bg-white/75'}`}
+                  aria-label={`Chuyển đến slide ${index + 1}`}
+                />
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -131,7 +170,7 @@ const HomePage = () => {
       <section className="mx-auto -mt-12 max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {categories.map((category) => (
-            <Link key={category.id} to={`/products?category=${category.id}`} className="group overflow-hidden rounded-lg border border-slate-200 bg-white shadow-soft">
+            <Link key={category.id} to={`/products?category=${category.id}`} className="group overflow-hidden rounded-lg border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-900">
               <div className="relative aspect-[4/3] overflow-hidden">
                 <img src={category.image} alt={category.name} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950/75 to-transparent" />
@@ -150,10 +189,10 @@ const HomePage = () => {
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
-            <p className="text-sm font-bold uppercase text-premium-700">Sản phẩm mới</p>
-            <h2 className="mt-1 text-3xl font-black text-slate-950">Hàng nổi bật trong kho</h2>
+            <p className="text-sm font-bold uppercase text-premium-700 dark:text-premium-300">Sản phẩm mới</p>
+            <h2 className="mt-1 text-3xl font-black text-slate-950 dark:text-white">Hàng nổi bật trong kho</h2>
           </div>
-          <Link to="/products" className="inline-flex items-center gap-2 text-sm font-bold text-premium-700 hover:text-premium-900">
+          <Link to="/products" className="inline-flex items-center gap-2 text-sm font-bold text-premium-700 hover:text-premium-900 dark:text-premium-300">
             Xem tất cả <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
@@ -163,31 +202,42 @@ const HomePage = () => {
         ) : (
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {featuredProducts.map((product) => (
-              <article key={product.id} className="group overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition hover:shadow-soft">
-                <div className="relative aspect-[3/4] overflow-hidden bg-slate-100">
+              <article key={product.id} className="group overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-soft dark:border-slate-800 dark:bg-slate-900">
+                <Link to={`/products/${product.id}`} className="relative block aspect-[3/4] overflow-hidden bg-slate-100 dark:bg-slate-800">
                   <img src={getImageUrl(product.image_url, fallbackImage)} alt={product.name} className="h-full w-full object-cover object-top transition duration-500 group-hover:scale-105" />
-                  <button
-                    onClick={() => openQuickView(product)}
-                    className="absolute right-3 top-3 rounded-md bg-white p-2 text-slate-800 shadow hover:bg-premium-700 hover:text-white"
-                    aria-label="Xem nhanh"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </button>
-                  <span className="absolute left-3 top-3 rounded-md bg-white/95 px-2.5 py-1 text-[11px] font-bold uppercase text-slate-700">
+                  <span className="absolute left-3 top-3 rounded-md bg-white/95 px-2.5 py-1 text-[11px] font-bold uppercase text-slate-700 dark:bg-slate-950/85 dark:text-slate-200">
                     {product.category_name || 'Thời trang'}
                   </span>
-                </div>
+                  <span className="absolute bottom-3 left-3 inline-flex items-center gap-1 rounded-md bg-slate-950/80 px-2.5 py-1 text-xs font-bold text-white">
+                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                    {Number(product.rating_avg || 0).toFixed(1)}
+                  </span>
+                </Link>
                 <div className="space-y-3 p-4">
                   <div>
-                    <h3 className="line-clamp-1 font-bold text-slate-950">{product.name}</h3>
-                    <p className="mt-1 text-xs text-slate-500">Tồn kho: {getProductStock(product)}</p>
+                    <Link to={`/products/${product.id}`} className="line-clamp-1 font-bold text-slate-950 hover:text-premium-700 dark:text-white dark:hover:text-premium-300">
+                      {product.name}
+                    </Link>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Tồn kho: {getProductStock(product)} | {product.like_count || 0} lượt thích</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {product.tags?.slice(0, 2).map((tag) => (
+                        <span key={tag.id || tag.name} className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                          #{tag.name}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between border-t border-slate-100 pt-3">
-                    <span className="font-black text-premium-800">{formatPrice(product.base_price)}</span>
-                    <Button size="sm" onClick={() => openQuickView(product)}>
-                      <ShoppingBag className="h-4 w-4" />
-                      Chọn
-                    </Button>
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-3 dark:border-slate-800">
+                    <span className="font-black text-premium-800 dark:text-premium-300">{formatPrice(product.base_price)}</span>
+                    <div className="flex items-center gap-2">
+                      <Link to={`/products/${product.id}`} className="rounded-md p-2 text-slate-600 hover:bg-slate-100 hover:text-premium-700 dark:text-slate-300 dark:hover:bg-slate-800" aria-label="Chi tiết">
+                        <Eye className="h-4 w-4" />
+                      </Link>
+                      <Button size="sm" onClick={() => openQuickView(product)}>
+                        <ShoppingBag className="h-4 w-4" />
+                        Chọn
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </article>
@@ -196,27 +246,27 @@ const HomePage = () => {
         )}
       </section>
 
-      <section className="border-y border-slate-200 bg-white">
+      <section className="border-y border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 py-10 sm:px-6 md:grid-cols-3 lg:px-8">
           {[
-            { icon: Truck, title: 'Giao hàng COD', desc: 'Quy trình đặt hàng nhanh, thanh toán khi nhận hàng.' },
-            { icon: PackageCheck, title: 'Tồn kho rõ ràng', desc: 'Mỗi sản phẩm có biến thể size, màu và số lượng cụ thể.' },
-            { icon: ShieldCheck, title: 'Quản trị đầy đủ', desc: 'Admin có dashboard, sản phẩm, đơn hàng và cập nhật trạng thái.' }
+            { icon: Truck, title: 'Giao hàng COD', desc: 'Tự tính phí ship theo địa chỉ tỉnh, huyện, xã/phường.' },
+            { icon: PackageCheck, title: 'Tồn kho rõ ràng', desc: 'Mỗi sản phẩm có nhiều biến thể size, màu và số lượng cụ thể.' },
+            { icon: ShieldCheck, title: 'Quản trị đầy đủ', desc: 'Admin theo dõi dashboard, sản phẩm, đơn hàng và thông báo trạng thái.' }
           ].map((item) => (
             <div key={item.title} className="flex gap-4">
-              <div className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-md bg-premium-50 text-premium-700">
+              <div className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-md bg-premium-50 text-premium-700 dark:bg-premium-900/35 dark:text-premium-300">
                 <item.icon className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="font-black text-slate-950">{item.title}</h3>
-                <p className="mt-1 text-sm leading-6 text-slate-500">{item.desc}</p>
+                <h3 className="font-black text-slate-950 dark:text-white">{item.title}</h3>
+                <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">{item.desc}</p>
               </div>
             </div>
           ))}
         </div>
       </section>
 
-      <Modal isOpen={!!quickViewProduct} onClose={() => setQuickViewProduct(null)} title="Chi tiết sản phẩm" maxWidth="max-w-4xl">
+      <Modal isOpen={!!quickViewProduct} onClose={() => setQuickViewProduct(null)} title="Xem nhanh sản phẩm" maxWidth="max-w-4xl">
         {quickViewProduct && (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <img src={getImageUrl(quickViewProduct.image_url, fallbackImage)} alt={quickViewProduct.name} className="aspect-[3/4] w-full rounded-lg object-cover object-top" />
@@ -228,6 +278,11 @@ const HomePage = () => {
                 <p className="mt-4 text-sm leading-6 text-slate-600">
                   {quickViewProduct.description || 'Sản phẩm thời trang dễ phối đồ, phù hợp nhiều nhu cầu sử dụng hằng ngày.'}
                 </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {quickViewProduct.tags?.map((tag) => (
+                    <span key={tag.id || tag.name} className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">#{tag.name}</span>
+                  ))}
+                </div>
 
                 <div className="mt-6">
                   <label className="text-xs font-black uppercase text-slate-700">Chọn size và màu</label>
@@ -265,10 +320,16 @@ const HomePage = () => {
                     <button className="px-3 py-1.5 font-bold hover:bg-slate-50" onClick={() => setQuantity(Math.min(selectedVariant?.stock_quantity || 1, quantity + 1))}>+</button>
                   </div>
                 </div>
-                <Button size="lg" className="w-full" disabled={!selectedVariant || selectedVariant.stock_quantity <= 0} onClick={handleAddToCart}>
-                  <ShoppingBag className="h-5 w-5" />
-                  Thêm vào giỏ hàng
-                </Button>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <Button size="lg" className="w-full" disabled={!selectedVariant || selectedVariant.stock_quantity <= 0} onClick={handleAddToCart}>
+                    <ShoppingBag className="h-5 w-5" />
+                    Thêm vào giỏ
+                  </Button>
+                  <Link to={`/products/${quickViewProduct.id}`} className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 px-5 py-3 text-base font-semibold text-slate-800 hover:bg-slate-50">
+                    <Heart className="h-5 w-5" />
+                    Xem chi tiết
+                  </Link>
+                </div>
                 {addedToast && (
                   <div className="flex items-center justify-center gap-2 rounded-md bg-emerald-50 py-2 text-sm font-bold text-emerald-700">
                     <Check className="h-4 w-4" />

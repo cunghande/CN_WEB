@@ -2,6 +2,10 @@ SET NAMES utf8mb4;
 USE shop_quan_ao;
 
 SET FOREIGN_KEY_CHECKS = 0;
+TRUNCATE TABLE product_tag_map;
+TRUNCATE TABLE product_likes;
+TRUNCATE TABLE product_comments;
+TRUNCATE TABLE product_reviews;
 TRUNCATE TABLE product_variants;
 TRUNCATE TABLE products;
 SET FOREIGN_KEY_CHECKS = 1;

@@ -17,6 +17,18 @@ export const authenticate = (req, res, next) => {
   }
 };
 
+export const optionalAuthenticate = (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      req.user = verifyToken(authHeader.split(' ')[1]);
+    }
+  } catch {
+    req.user = null;
+  }
+  next();
+};
+
 export const authorizeAdmin = (req, res, next) => {
   if (!req.user || req.user.role !== 'admin') {
     return sendResponse(res, 403, false, 'Bạn không có quyền truy cập chức năng quản trị');
