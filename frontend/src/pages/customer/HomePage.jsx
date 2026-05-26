@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
-import { ArrowRight, Check, Eye, Heart, PackageCheck, ShieldCheck, ShoppingBag, Sparkles, Star, Truck, User } from 'lucide-react';
+import { ArrowRight, Check, Eye, EyeOff, Heart, Lock, Mail, PackageCheck, ShieldCheck, ShoppingBag, Sparkles, Star, Truck, User } from 'lucide-react';
 import useAuth from '../../hooks/useAuth.js';
 import useCart from '../../hooks/useCart.js';
 import useProduct from '../../hooks/useProduct.js';
@@ -49,8 +49,10 @@ const HomePage = () => {
 
   const [authModal, setAuthModal] = useState(false);
   const [authTab, setAuthTab] = useState('login');
-  const [email, setEmail] = useState('a@gmail.com');
-  const [password, setPassword] = useState('123456');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [fullName, setFullName] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
@@ -101,6 +103,11 @@ const HomePage = () => {
     setAuthError('');
 
     try {
+      if (authTab === 'register' && password !== confirmPassword) {
+        setAuthError('Mật khẩu xác nhận không khớp');
+        return;
+      }
+
       const res = authTab === 'login'
         ? await loginAPI({ email, password })
         : await registerAPI({ full_name: fullName, email, password });
@@ -149,7 +156,7 @@ const HomePage = () => {
               {!isAuthenticated && (
                 <Button variant="outline" size="lg" className="border-white/40 bg-white/10 text-white hover:bg-white/20" onClick={() => setAuthModal(true)}>
                   <User className="h-4 w-4" />
-                  Đăng nhập demo
+                  Đăng nhập
                 </Button>
               )}
             </div>
@@ -342,27 +349,140 @@ const HomePage = () => {
         )}
       </Modal>
 
-      <Modal isOpen={authModal} onClose={() => setAuthModal(false)} title={authTab === 'login' ? 'Đăng nhập' : 'Đăng ký tài khoản'}>
-        <form onSubmit={handleAuthSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 rounded-md bg-slate-100 p-1">
-            <button type="button" onClick={() => setAuthTab('login')} className={`rounded px-3 py-2 text-sm font-bold ${authTab === 'login' ? 'bg-white shadow-sm' : 'text-slate-500'}`}>Đăng nhập</button>
-            <button type="button" onClick={() => setAuthTab('register')} className={`rounded px-3 py-2 text-sm font-bold ${authTab === 'register' ? 'bg-white shadow-sm' : 'text-slate-500'}`}>Đăng ký</button>
+      <Modal isOpen={authModal} onClose={() => setAuthModal(false)} title="">
+        <div className="relative overflow-hidden rounded-lg bg-slate-950 p-5 text-white">
+          <img
+            src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=900&q=80"
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover opacity-35"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/85 to-slate-950/35" />
+          <div className="relative">
+            <p className="text-xs font-bold uppercase tracking-wide text-premium-200">LuxuryWear Account</p>
+            <h2 className="mt-2 text-2xl font-black">{authTab === 'login' ? 'Chào mừng quay lại' : 'Tạo tài khoản mua sắm'}</h2>
+            <p className="mt-2 max-w-sm text-sm leading-6 text-slate-200">
+              {authTab === 'login'
+                ? 'Đăng nhập để theo dõi đơn hàng, lưu địa chỉ giao hàng và nhận thông báo mới nhất.'
+                : 'Đăng ký tài khoản để đặt hàng nhanh hơn và quản lý lịch sử mua sắm của bạn.'}
+            </p>
+          </div>
+        </div>
+
+        <form onSubmit={handleAuthSubmit} className="mt-5 space-y-4">
+          <div className="grid grid-cols-2 rounded-lg bg-slate-100 p-1">
+            <button
+              type="button"
+              onClick={() => {
+                setAuthTab('login');
+                setAuthError('');
+              }}
+              className={`rounded-md px-3 py-2.5 text-sm font-black transition ${
+                authTab === 'login' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Đăng nhập
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAuthTab('register');
+                setAuthError('');
+              }}
+              className={`rounded-md px-3 py-2.5 text-sm font-black transition ${
+                authTab === 'register' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Đăng ký
+            </button>
           </div>
 
-          <div className="rounded-md border border-premium-100 bg-premium-50 p-3 text-xs leading-5 text-premium-900">
-            Demo: khách hàng <b>a@gmail.com</b> / <b>123456</b>, admin <b>admin@gmail.com</b> / <b>123456</b>
-          </div>
-
-          {authError && <div className="rounded-md bg-red-50 p-3 text-sm font-bold text-red-600">{authError}</div>}
+          {authError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+              {authError}
+            </div>
+          )}
 
           {authTab === 'register' && (
-            <input required value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Họ và tên" className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-premium-500" />
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-black uppercase text-slate-500">Họ và tên</span>
+              <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 focus-within:border-premium-600 focus-within:ring-2 focus-within:ring-premium-100">
+                <User className="h-5 w-5 text-slate-400" />
+                <input
+                  required
+                  value={fullName}
+                  onChange={(event) => setFullName(event.target.value)}
+                  placeholder="Ví dụ: Nguyễn Văn A"
+                  className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
+                />
+              </div>
+            </label>
           )}
-          <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-premium-500" />
-          <input required type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Mật khẩu" className="w-full rounded-md border border-slate-200 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-premium-500" />
+
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-black uppercase text-slate-500">Email</span>
+            <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 focus-within:border-premium-600 focus-within:ring-2 focus-within:ring-premium-100">
+              <Mail className="h-5 w-5 text-slate-400" />
+              <input
+                required
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="you@example.com"
+                autoComplete="email"
+                className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
+              />
+            </div>
+          </label>
+
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-black uppercase text-slate-500">Mật khẩu</span>
+            <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 focus-within:border-premium-600 focus-within:ring-2 focus-within:ring-premium-100">
+              <Lock className="h-5 w-5 text-slate-400" />
+              <input
+                required
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Nhập mật khẩu"
+                autoComplete={authTab === 'login' ? 'current-password' : 'new-password'}
+                className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((visible) => !visible)}
+                className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </label>
+
+          {authTab === 'register' && (
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-black uppercase text-slate-500">Xác nhận mật khẩu</span>
+              <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 focus-within:border-premium-600 focus-within:ring-2 focus-within:ring-premium-100">
+                <Lock className="h-5 w-5 text-slate-400" />
+                <input
+                  required
+                  type={showPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  placeholder="Nhập lại mật khẩu"
+                  autoComplete="new-password"
+                  className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
+                />
+              </div>
+            </label>
+          )}
+
           <Button type="submit" size="lg" className="w-full" disabled={authLoading}>
             {authLoading ? <Spinner size="sm" /> : authTab === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'}
           </Button>
+
+          <p className="text-center text-xs leading-5 text-slate-500">
+            Bằng việc tiếp tục, bạn đồng ý sử dụng tài khoản để quản lý đơn hàng, địa chỉ giao hàng và thông báo từ cửa hàng.
+          </p>
         </form>
       </Modal>
     </div>
