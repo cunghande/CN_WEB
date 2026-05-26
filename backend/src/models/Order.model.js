@@ -1,4 +1,5 @@
 import db from '../config/db.js';
+import Notification from './Notification.model.js';
 
 class Order {
   static async create(orderData) {
@@ -46,12 +47,31 @@ class Order {
         );
       }
 
-      await connection.execute(
-        'INSERT INTO notifications (user_id, order_id, title, message, type) VALUES (?, ?, ?, ?, ?)',
-        [user_id, orderId, 'Đơn hàng đã được tạo', `Đơn hàng #${orderId} đang chờ xử lý.`, 'order']
-      );
-
       await connection.commit();
+
+      await Notification.create({
+        user_id,
+        order_id: orderId,
+        title: 'Đơn hàng đã được tạo',
+        message: `Đơn hàng #${orderId} đang chờ xử lý.`,
+        type: 'order',
+        target_url: '/orders',
+        entity_type: 'order',
+        entity_id: orderId
+      });
+
+      const [users] = await db.execute('SELECT full_name FROM users WHERE id = ?', [user_id]);
+      await Notification.createForAdmins({
+        actor_user_id: user_id,
+        order_id: orderId,
+        title: 'Có đơn hàng mới',
+        message: `${users[0]?.full_name || 'Khách hàng'} vừa tạo đơn hàng #${orderId}.`,
+        type: 'admin_order',
+        target_url: '/admin/orders',
+        entity_type: 'order',
+        entity_id: orderId
+      });
+
       return orderId;
     } catch (error) {
       await connection.rollback();

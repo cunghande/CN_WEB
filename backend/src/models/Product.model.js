@@ -1,4 +1,5 @@
 import db from '../config/db.js';
+import Notification from './Notification.model.js';
 
 const enrichProducts = async (products, currentUserId = null) => {
   const [variants] = await db.execute('SELECT * FROM product_variants ORDER BY product_id ASC, id ASC');
@@ -64,12 +65,12 @@ class Product {
     if (!products[0]) return null;
 
     const [product] = await enrichProducts(products, currentUserId);
-    product.comments = await this.getComments(id);
+    product.comments = await this.getComments(id, currentUserId);
     product.reviews = await this.getReviews(id);
     return product;
   }
 
-  static async getComments(productId) {
+  static async getComments(productId, currentUserId = null) {
     const [rows] = await db.execute(`
       SELECT pc.*, u.full_name, u.avatar_url
       FROM product_comments pc
@@ -77,7 +78,47 @@ class Product {
       WHERE pc.product_id = ?
       ORDER BY pc.id DESC
     `, [productId]);
-    return rows;
+
+    if (rows.length === 0) return [];
+
+    const commentIds = rows.map((item) => item.id);
+    const placeholders = commentIds.map(() => '?').join(',');
+    const [reactionCounts] = await db.execute(`
+      SELECT comment_id,
+        SUM(reaction = 'like') AS like_count,
+        SUM(reaction = 'dislike') AS dislike_count
+      FROM product_comment_reactions
+      WHERE comment_id IN (${placeholders})
+      GROUP BY comment_id
+    `, commentIds);
+
+    const [myReactions] = currentUserId
+      ? await db.execute(`
+        SELECT comment_id, reaction
+        FROM product_comment_reactions
+        WHERE user_id = ? AND comment_id IN (${placeholders})
+      `, [currentUserId, ...commentIds])
+      : [[]];
+
+    const [replies] = await db.execute(`
+      SELECT pcr.*, u.full_name, u.avatar_url
+      FROM product_comment_replies pcr
+      JOIN users u ON pcr.user_id = u.id
+      WHERE pcr.comment_id IN (${placeholders})
+      ORDER BY pcr.id ASC
+    `, commentIds);
+
+    return rows.map((comment) => {
+      const counts = reactionCounts.find((item) => item.comment_id === comment.id);
+      const myReaction = myReactions.find((item) => item.comment_id === comment.id);
+      return {
+        ...comment,
+        like_count: Number(counts?.like_count || 0),
+        dislike_count: Number(counts?.dislike_count || 0),
+        my_reaction: myReaction?.reaction || null,
+        replies: replies.filter((reply) => reply.comment_id === comment.id)
+      };
+    });
   }
 
   static async getReviews(productId) {
@@ -189,6 +230,114 @@ class Product {
       'INSERT INTO product_comments (product_id, user_id, content) VALUES (?, ?, ?)',
       [productId, userId, content]
     );
+
+    const [users] = await db.execute('SELECT full_name FROM users WHERE id = ?', [userId]);
+    const [products] = await db.execute('SELECT name FROM products WHERE id = ?', [productId]);
+    await Notification.createForAdmins({
+      actor_user_id: userId,
+      title: 'Có bình luận sản phẩm mới',
+      message: `${users[0]?.full_name || 'Khách hàng'} đã bình luận về ${products[0]?.name || 'sản phẩm'}.`,
+      type: 'product_comment',
+      target_url: `/products/${productId}#comment-${result.insertId}`,
+      entity_type: 'product_comment',
+      entity_id: result.insertId
+    });
+
+    return result.insertId;
+  }
+
+  static async setCommentReaction(productId, commentId, userId, reaction) {
+    const [comments] = await db.execute(
+      `SELECT pc.*, u.full_name AS owner_name
+       FROM product_comments pc
+       JOIN users u ON pc.user_id = u.id
+       WHERE pc.id = ? AND pc.product_id = ?`,
+      [commentId, productId]
+    );
+    const comment = comments[0];
+    if (!comment) return null;
+
+    const [actorRows] = await db.execute('SELECT full_name FROM users WHERE id = ?', [userId]);
+    const [existing] = await db.execute(
+      'SELECT reaction FROM product_comment_reactions WHERE comment_id = ? AND user_id = ?',
+      [commentId, userId]
+    );
+
+    if (existing[0]?.reaction === reaction) {
+      await db.execute('DELETE FROM product_comment_reactions WHERE comment_id = ? AND user_id = ?', [commentId, userId]);
+      return { reaction: null };
+    }
+
+    await db.execute(
+      `INSERT INTO product_comment_reactions (comment_id, user_id, reaction)
+       VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE reaction = VALUES(reaction), updated_at = CURRENT_TIMESTAMP`,
+      [commentId, userId, reaction]
+    );
+
+    if (comment.user_id !== userId) {
+      await Notification.create({
+        user_id: comment.user_id,
+        actor_user_id: userId,
+        title: reaction === 'like' ? 'Bình luận của bạn có lượt thích' : 'Bình luận của bạn có lượt không thích',
+        message: `${actorRows[0]?.full_name || 'Một người dùng'} đã ${reaction === 'like' ? 'thích' : 'không thích'} bình luận của bạn.`,
+        type: 'comment_reaction',
+        target_url: `/products/${productId}#comment-${commentId}`,
+        entity_type: 'product_comment',
+        entity_id: commentId
+      });
+    }
+
+    return { reaction };
+  }
+
+  static async deleteCommentReaction(productId, commentId, userId) {
+    await db.execute(
+      `DELETE pcr FROM product_comment_reactions pcr
+       JOIN product_comments pc ON pcr.comment_id = pc.id
+       WHERE pcr.comment_id = ? AND pc.product_id = ? AND pcr.user_id = ?`,
+      [commentId, productId, userId]
+    );
+    return true;
+  }
+
+  static async addCommentReply(productId, commentId, userId, content) {
+    const [comments] = await db.execute('SELECT * FROM product_comments WHERE id = ? AND product_id = ?', [commentId, productId]);
+    const comment = comments[0];
+    if (!comment) return null;
+
+    const [result] = await db.execute(
+      'INSERT INTO product_comment_replies (comment_id, product_id, user_id, content) VALUES (?, ?, ?, ?)',
+      [commentId, productId, userId, content]
+    );
+
+    const [actorRows] = await db.execute('SELECT full_name FROM users WHERE id = ?', [userId]);
+    const actorName = actorRows[0]?.full_name || 'Một người dùng';
+    const targetUrl = `/products/${productId}#comment-${commentId}`;
+
+    if (comment.user_id !== userId) {
+      await Notification.create({
+        user_id: comment.user_id,
+        actor_user_id: userId,
+        title: 'Có phản hồi bình luận mới',
+        message: `${actorName} đã phản hồi bình luận của bạn.`,
+        type: 'comment_reply',
+        target_url: targetUrl,
+        entity_type: 'product_comment_reply',
+        entity_id: result.insertId
+      });
+    }
+
+    await Notification.createForAdmins({
+      actor_user_id: userId,
+      title: 'Có phản hồi bình luận sản phẩm',
+      message: `${actorName} đã phản hồi một bình luận sản phẩm.`,
+      type: 'comment_reply',
+      target_url: targetUrl,
+      entity_type: 'product_comment_reply',
+      entity_id: result.insertId
+    });
+
     return result.insertId;
   }
 

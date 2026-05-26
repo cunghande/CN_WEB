@@ -1,20 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import {
-  Bell,
-  LogOut,
-  Menu,
-  Moon,
-  ShoppingBag,
-  ShieldCheck,
-  Sun,
-  User,
-  X
-} from 'lucide-react';
+import { Bell, LogOut, Menu, Moon, ShoppingBag, ShieldCheck, Sun, User, X } from 'lucide-react';
 import { logout, setTheme } from '../../redux/slices/authSlice.js';
 import { fetchNotifications } from '../../redux/slices/notificationSlice.js';
-import { markAllNotificationsReadAPI } from '../../services/notificationService.js';
+import { markAllNotificationsReadAPI, markNotificationReadAPI } from '../../services/notificationService.js';
 
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -50,10 +40,18 @@ const Navbar = () => {
 
   const handleOpenNotifications = async () => {
     setNotificationOpen((open) => !open);
-    if (!notificationOpen && unreadCount > 0) {
-      await markAllNotificationsReadAPI();
-      dispatch(fetchNotifications());
-    }
+  };
+
+  const handleNotificationClick = async (notification) => {
+    await markNotificationReadAPI(notification.id);
+    dispatch(fetchNotifications());
+    setNotificationOpen(false);
+    if (notification.target_url) navigate(notification.target_url);
+  };
+
+  const handleReadAll = async () => {
+    await markAllNotificationsReadAPI();
+    dispatch(fetchNotifications());
   };
 
   const renderLink = (link) => {
@@ -77,11 +75,11 @@ const Navbar = () => {
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-950/92">
+    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <span className="grid h-9 w-9 place-items-center rounded-md bg-premium-700 text-sm font-black text-white">LW</span>
+            <span className="grid h-9 w-9 place-items-center rounded-md bg-premium-700 text-sm font-black text-white dark:bg-premium-500">LW</span>
             <span className="text-lg font-black tracking-wide text-slate-950 dark:text-white">
               LUXURY<span className="text-premium-700 dark:text-premium-300">WEAR</span>
             </span>
@@ -92,7 +90,7 @@ const Navbar = () => {
             {user?.role === 'admin' && (
               <Link
                 to="/admin/dashboard"
-                className="inline-flex items-center gap-2 rounded-md bg-premium-50 px-3 py-2 text-sm font-bold text-premium-800 hover:bg-premium-100 dark:bg-premium-900/35 dark:text-premium-200"
+                className="inline-flex items-center gap-2 rounded-md bg-premium-50 px-3 py-2 text-sm font-bold text-premium-800 hover:bg-premium-100 dark:bg-premium-500/15 dark:text-premium-200 dark:hover:bg-premium-500/25"
               >
                 <ShieldCheck className="h-4 w-4" />
                 Quản trị
@@ -125,17 +123,29 @@ const Navbar = () => {
                 </button>
                 {notificationOpen && (
                   <div className="absolute right-0 mt-3 w-80 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
-                    <div className="border-b border-slate-100 px-4 py-3 text-sm font-black text-slate-950 dark:border-slate-800 dark:text-white">
-                      Thông báo đơn hàng
+                    <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 dark:border-slate-800">
+                      <div className="text-sm font-black text-slate-950 dark:text-white">Thông báo</div>
+                      {notifications.length > 0 && (
+                        <button onClick={handleReadAll} className="text-xs font-bold text-premium-700 hover:text-premium-900 dark:text-premium-300">
+                          Đọc tất cả
+                        </button>
+                      )}
                     </div>
                     <div className="max-h-80 overflow-y-auto">
                       {notifications.length === 0 ? (
                         <div className="px-4 py-5 text-sm text-slate-500 dark:text-slate-400">Chưa có thông báo mới.</div>
-                      ) : notifications.slice(0, 6).map((item) => (
-                        <div key={item.id} className="border-b border-slate-100 px-4 py-3 last:border-0 dark:border-slate-800">
+                      ) : notifications.slice(0, 8).map((item) => (
+                        <button
+                          key={item.id}
+                          onClick={() => handleNotificationClick(item)}
+                          className={`block w-full border-b border-slate-100 px-4 py-3 text-left last:border-0 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800 ${
+                            item.is_read ? '' : 'bg-premium-50/60 dark:bg-premium-500/10'
+                          }`}
+                        >
                           <div className="text-sm font-bold text-slate-900 dark:text-white">{item.title}</div>
                           <div className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{item.message}</div>
-                        </div>
+                          {item.actor_name && <div className="mt-1 text-[11px] font-bold text-premium-700 dark:text-premium-300">Từ: {item.actor_name}</div>}
+                        </button>
                       ))}
                     </div>
                     <Link to="/account/notifications" onClick={() => setNotificationOpen(false)} className="block bg-slate-50 px-4 py-3 text-center text-xs font-bold text-premium-700 hover:bg-slate-100 dark:bg-slate-950 dark:text-premium-300 dark:hover:bg-slate-800">
@@ -176,7 +186,7 @@ const Navbar = () => {
                 </Link>
                 <button
                   onClick={handleLogout}
-                  className="rounded-md p-2 text-slate-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/35"
+                  className="rounded-md p-2 text-slate-500 hover:bg-red-50 hover:text-red-600 dark:text-slate-300 dark:hover:bg-red-950/35 dark:hover:text-red-300"
                   aria-label="Đăng xuất"
                 >
                   <LogOut className="h-5 w-5" />
@@ -211,7 +221,7 @@ const Navbar = () => {
             </nav>
             <div className="border-t border-slate-100 pt-4 dark:border-slate-800">
               {user ? (
-                <button onClick={handleLogout} className="inline-flex items-center gap-2 text-sm font-bold text-red-600">
+                <button onClick={handleLogout} className="inline-flex items-center gap-2 text-sm font-bold text-red-600 dark:text-red-300">
                   <LogOut className="h-4 w-4" />
                   Đăng xuất
                 </button>

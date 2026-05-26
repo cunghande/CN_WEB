@@ -86,10 +86,14 @@ export const updateOrderStatus = async (req, res, next) => {
 
     await Notification.create({
       user_id: order.user_id,
+      actor_user_id: req.user.id,
       order_id: order.id,
       title: `Đơn hàng #${order.id} ${statusLabels[status]}`,
       message: `Trạng thái đơn hàng của bạn vừa được cập nhật: ${statusLabels[status]}.`,
-      type: 'order'
+      type: 'order',
+      target_url: '/orders',
+      entity_type: 'order',
+      entity_id: order.id
     });
 
     return sendResponse(res, 200, true, 'Cập nhật trạng thái đơn hàng thành công');

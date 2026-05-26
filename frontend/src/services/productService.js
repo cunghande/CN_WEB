@@ -44,6 +44,21 @@ export const addProductCommentAPI = async (id, content) => {
   return response.data;
 };
 
+export const setCommentReactionAPI = async (productId, commentId, reaction) => {
+  const response = await api.post(`/products/${productId}/comments/${commentId}/reaction`, { reaction });
+  return response.data;
+};
+
+export const deleteCommentReactionAPI = async (productId, commentId) => {
+  const response = await api.delete(`/products/${productId}/comments/${commentId}/reaction`);
+  return response.data;
+};
+
+export const addCommentReplyAPI = async (productId, commentId, content) => {
+  const response = await api.post(`/products/${productId}/comments/${commentId}/replies`, { content });
+  return response.data;
+};
+
 export const addProductReviewAPI = async (id, reviewData) => {
   const response = await api.post(`/products/${id}/reviews`, reviewData);
   return response.data;

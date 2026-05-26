@@ -12,8 +12,8 @@ export const getNotifications = async (req, res, next) => {
 
 export const markNotificationRead = async (req, res, next) => {
   try {
-    await Notification.markRead(req.params.id, req.user.id);
-    return sendResponse(res, 200, true, 'Đã đọc thông báo');
+    const notification = await Notification.markRead(req.params.id, req.user.id);
+    return sendResponse(res, 200, true, 'Đã đọc thông báo', notification);
   } catch (error) {
     next(error);
   }

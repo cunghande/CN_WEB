@@ -1,11 +1,14 @@
 import express from 'express';
 import {
   addComment,
+  addCommentReply,
   addReview,
   createProduct,
+  deleteCommentReaction,
   deleteProduct,
   getProductById,
   getProducts,
+  setCommentReaction,
   toggleLike,
   updateProduct
 } from '../controllers/product.controller.js';
@@ -22,6 +25,9 @@ router.delete('/:id', authenticate, authorizeAdmin, deleteProduct);
 router.post('/:id/like', authenticate, toggleLike);
 router.delete('/:id/like', authenticate, toggleLike);
 router.post('/:id/comments', authenticate, addComment);
+router.post('/:productId/comments/:commentId/reaction', authenticate, setCommentReaction);
+router.delete('/:productId/comments/:commentId/reaction', authenticate, deleteCommentReaction);
+router.post('/:productId/comments/:commentId/replies', authenticate, addCommentReply);
 router.post('/:id/reviews', authenticate, addReview);
 
 export default router;

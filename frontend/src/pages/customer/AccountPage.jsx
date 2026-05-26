@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Camera, KeyRound, MapPin, Moon, Save, Sun, Trash2 } from 'lucide-react';
 import { useDispatch } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import Button from '../../components/common/Button.jsx';
 import Spinner from '../../components/common/Spinner.jsx';
 import useAuth from '../../hooks/useAuth.js';
 import { createAddressAPI, deleteAddressAPI, getAddressesAPI } from '../../services/addressService.js';
 import { changePasswordAPI, updateAvatarAPI, updateProfileAPI } from '../../services/authService.js';
 import { getDistrictsAPI, getProvincesAPI, getWardsAPI } from '../../services/locationService.js';
-import { markAllNotificationsReadAPI } from '../../services/notificationService.js';
+import { markAllNotificationsReadAPI, markNotificationReadAPI } from '../../services/notificationService.js';
 import { setTheme, updateUser } from '../../redux/slices/authSlice.js';
 import { fetchNotifications } from '../../redux/slices/notificationSlice.js';
 import { getImageUrl } from '../../utils/imageUrl.js';
@@ -30,6 +31,7 @@ const emptyAddress = {
 const AccountPage = () => {
   const { user } = useAuth();
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const notifications = useSelector((state) => state.notifications.items);
   const [profile, setProfile] = useState({ full_name: user?.full_name || '', phone: user?.phone || '', theme_preference: user?.theme_preference || 'light' });
   const [passwords, setPasswords] = useState({ current_password: '', new_password: '' });
@@ -122,6 +124,12 @@ const AccountPage = () => {
     dispatch(fetchNotifications());
   };
 
+  const handleNotificationClick = async (notification) => {
+    await markNotificationReadAPI(notification.id);
+    dispatch(fetchNotifications());
+    if (notification.target_url) navigate(notification.target_url);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 py-10 dark:bg-slate-950">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -208,10 +216,11 @@ const AccountPage = () => {
             </div>
             <div className="mt-4 space-y-3">
               {notifications.map((item) => (
-                <div key={item.id} className={`rounded-lg border p-4 text-sm ${item.is_read ? 'border-slate-200 dark:border-slate-700' : 'border-premium-200 bg-premium-50 dark:bg-premium-900/20'}`}>
+                <button key={item.id} onClick={() => handleNotificationClick(item)} className={`block w-full rounded-lg border p-4 text-left text-sm transition hover:bg-slate-50 dark:hover:bg-slate-800 ${item.is_read ? 'border-slate-200 dark:border-slate-700' : 'border-premium-200 bg-premium-50 dark:bg-premium-900/20'}`}>
                   <div className="font-black text-slate-950 dark:text-white">{item.title}</div>
                   <div className="text-slate-600 dark:text-slate-300">{item.message}</div>
-                </div>
+                  {item.actor_name && <div className="mt-1 text-xs font-bold text-premium-700 dark:text-premium-300">Từ: {item.actor_name}</div>}
+                </button>
               ))}
               {notifications.length === 0 && <p className="text-sm text-slate-500">Chưa có thông báo.</p>}
             </div>

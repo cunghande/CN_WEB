@@ -14,10 +14,10 @@ const Button = ({
 
   const variants = {
     primary: 'bg-premium-700 text-white shadow-sm hover:bg-premium-800 focus:ring-premium-500',
-    secondary: 'bg-slate-100 text-slate-900 hover:bg-slate-200 focus:ring-slate-400',
-    outline: 'border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 focus:ring-premium-500',
+    secondary: 'bg-slate-100 text-slate-900 hover:bg-slate-200 focus:ring-slate-400 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700',
+    outline: 'border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 focus:ring-premium-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800',
     danger: 'bg-red-600 text-white shadow-sm hover:bg-red-700 focus:ring-red-500',
-    ghost: 'text-slate-700 hover:bg-slate-100 focus:ring-slate-300'
+    ghost: 'text-slate-700 hover:bg-slate-100 focus:ring-slate-300 dark:text-slate-200 dark:hover:bg-slate-800'
   };
 
   const sizes = {

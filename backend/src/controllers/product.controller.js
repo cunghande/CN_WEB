@@ -122,3 +122,39 @@ export const addReview = async (req, res, next) => {
     next(error);
   }
 };
+
+export const setCommentReaction = async (req, res, next) => {
+  try {
+    const { reaction } = req.body;
+    if (!['like', 'dislike'].includes(reaction)) {
+      return sendResponse(res, 400, false, 'Reaction không hợp lệ');
+    }
+
+    const result = await Product.setCommentReaction(req.params.productId, req.params.commentId, req.user.id, reaction);
+    if (!result) return sendResponse(res, 404, false, 'Không tìm thấy bình luận');
+    return sendResponse(res, 200, true, 'Đã cập nhật cảm xúc bình luận', result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteCommentReaction = async (req, res, next) => {
+  try {
+    await Product.deleteCommentReaction(req.params.productId, req.params.commentId, req.user.id);
+    return sendResponse(res, 200, true, 'Đã bỏ cảm xúc bình luận');
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const addCommentReply = async (req, res, next) => {
+  try {
+    const { content } = req.body;
+    if (!content || !content.trim()) return sendResponse(res, 400, false, 'Vui lòng nhập nội dung phản hồi');
+    const id = await Product.addCommentReply(req.params.productId, req.params.commentId, req.user.id, content.trim());
+    if (!id) return sendResponse(res, 404, false, 'Không tìm thấy bình luận');
+    return sendResponse(res, 201, true, 'Đã gửi phản hồi', { id });
+  } catch (error) {
+    next(error);
+  }
+};
