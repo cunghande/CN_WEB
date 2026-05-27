@@ -1,9 +1,94 @@
 import bcrypt from 'bcryptjs';
+import crypto from 'node:crypto';
 import { generateToken } from '../config/jwt.js';
 import User from '../models/User.model.js';
 import { sendResponse } from '../utils/helpers.js';
 
 const invalidLoginMessage = 'Email hoặc mật khẩu không chính xác';
+const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+const redirectWithError = (res, message) => {
+  const url = new URL(frontendUrl);
+  url.searchParams.set('login', 'true');
+  url.searchParams.set('social_error', message);
+  return res.redirect(url.toString());
+};
+
+const redirectWithSession = (res, user) => {
+  const token = generateToken({ id: user.id, email: user.email, role: user.role });
+  const url = new URL(frontendUrl);
+  url.searchParams.set('social_token', token);
+  url.searchParams.set('social_user', encodeURIComponent(JSON.stringify(user)));
+  return res.redirect(url.toString());
+};
+
+const makeSocialPassword = async () => {
+  return bcrypt.hash(`social:${crypto.randomUUID()}`, 10);
+};
+
+const exchangeGoogleCode = async (code) => {
+  const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5000/api/auth/google/callback';
+  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      code,
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      redirect_uri: redirectUri,
+      grant_type: 'authorization_code'
+    })
+  });
+
+  if (!tokenResponse.ok) throw new Error('Không thể xác thực Google');
+  const tokens = await tokenResponse.json();
+  const profileResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+    headers: { Authorization: `Bearer ${tokens.access_token}` }
+  });
+  if (!profileResponse.ok) throw new Error('Không thể lấy hồ sơ Google');
+
+  const profile = await profileResponse.json();
+  if (!profile.email) throw new Error('Tài khoản Google không trả về email');
+  return {
+    email: profile.email,
+    full_name: profile.name || profile.email,
+    avatar_url: profile.picture || ''
+  };
+};
+
+const exchangeFacebookCode = async (code) => {
+  const redirectUri = process.env.FACEBOOK_REDIRECT_URI || 'http://localhost:5000/api/auth/facebook/callback';
+  const tokenUrl = new URL('https://graph.facebook.com/oauth/access_token');
+  tokenUrl.searchParams.set('client_id', process.env.FACEBOOK_APP_ID);
+  tokenUrl.searchParams.set('client_secret', process.env.FACEBOOK_APP_SECRET);
+  tokenUrl.searchParams.set('redirect_uri', redirectUri);
+  tokenUrl.searchParams.set('code', code);
+
+  const tokenResponse = await fetch(tokenUrl);
+  if (!tokenResponse.ok) throw new Error('Không thể xác thực Facebook');
+  const tokens = await tokenResponse.json();
+
+  const profileUrl = new URL('https://graph.facebook.com/me');
+  profileUrl.searchParams.set('fields', 'id,name,email,picture.type(large)');
+  profileUrl.searchParams.set('access_token', tokens.access_token);
+
+  const profileResponse = await fetch(profileUrl);
+  if (!profileResponse.ok) throw new Error('Không thể lấy hồ sơ Facebook');
+  const profile = await profileResponse.json();
+  if (!profile.email) throw new Error('Facebook chưa cấp quyền email cho tài khoản này');
+
+  return {
+    email: profile.email,
+    full_name: profile.name || profile.email,
+    avatar_url: profile.picture?.data?.url || ''
+  };
+};
+
+const signInSocialProfile = async (res, profile) => {
+  const password = await makeSocialPassword();
+  const user = await User.findOrCreateSocialUser({ ...profile, password });
+  return redirectWithSession(res, user);
+};
 
 export const register = async (req, res, next) => {
   try {
@@ -53,6 +138,54 @@ export const login = async (req, res, next) => {
     return sendResponse(res, 200, true, 'Đăng nhập thành công', { user: safeUser, token });
   } catch (error) {
     next(error);
+  }
+};
+
+export const startGoogleLogin = (req, res) => {
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    return redirectWithError(res, 'Chưa cấu hình Google OAuth trong backend/.env');
+  }
+
+  const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5000/api/auth/google/callback';
+  const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+  url.searchParams.set('client_id', process.env.GOOGLE_CLIENT_ID);
+  url.searchParams.set('redirect_uri', redirectUri);
+  url.searchParams.set('response_type', 'code');
+  url.searchParams.set('scope', 'openid email profile');
+  url.searchParams.set('prompt', 'select_account');
+  return res.redirect(url.toString());
+};
+
+export const handleGoogleCallback = async (req, res) => {
+  try {
+    if (!req.query.code) return redirectWithError(res, 'Google không trả về mã xác thực');
+    const profile = await exchangeGoogleCode(req.query.code);
+    return signInSocialProfile(res, profile);
+  } catch (error) {
+    return redirectWithError(res, error.message || 'Đăng nhập Google thất bại');
+  }
+};
+
+export const startFacebookLogin = (req, res) => {
+  if (!process.env.FACEBOOK_APP_ID || !process.env.FACEBOOK_APP_SECRET) {
+    return redirectWithError(res, 'Chưa cấu hình Facebook OAuth trong backend/.env');
+  }
+
+  const redirectUri = process.env.FACEBOOK_REDIRECT_URI || 'http://localhost:5000/api/auth/facebook/callback';
+  const url = new URL('https://www.facebook.com/dialog/oauth');
+  url.searchParams.set('client_id', process.env.FACEBOOK_APP_ID);
+  url.searchParams.set('redirect_uri', redirectUri);
+  url.searchParams.set('scope', 'email,public_profile');
+  return res.redirect(url.toString());
+};
+
+export const handleFacebookCallback = async (req, res) => {
+  try {
+    if (!req.query.code) return redirectWithError(res, 'Facebook không trả về mã xác thực');
+    const profile = await exchangeFacebookCode(req.query.code);
+    return signInSocialProfile(res, profile);
+  } catch (error) {
+    return redirectWithError(res, error.message || 'Đăng nhập Facebook thất bại');
   }
 };
 

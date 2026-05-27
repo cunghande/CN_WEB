@@ -9,7 +9,7 @@ import Button from '../../components/common/Button.jsx';
 import Modal from '../../components/common/Modal.jsx';
 import Spinner from '../../components/common/Spinner.jsx';
 import { loginSuccess } from '../../redux/slices/authSlice.js';
-import { loginAPI, registerAPI } from '../../services/authService.js';
+import { getSocialLoginUrl, loginAPI, registerAPI } from '../../services/authService.js';
 import { formatPrice } from '../../utils/formatPrice.js';
 import { getImageUrl } from '../../utils/imageUrl.js';
 import { getLowestStockVariant, getProductStock } from '../../utils/productHelpers.js';
@@ -33,6 +33,13 @@ const heroSlides = [
     image: 'https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1920&q=85'
   }
 ];
+
+const SocialIcon = ({ provider }) => {
+  if (provider === 'google') {
+    return <span className="grid h-5 w-5 place-items-center rounded-full bg-white text-sm font-black text-[#4285F4]">G</span>;
+  }
+  return <span className="grid h-5 w-5 place-items-center rounded-full bg-[#1877F2] text-sm font-black text-white">f</span>;
+};
 
 const HomePage = () => {
   const { products, loading } = useProduct();
@@ -61,8 +68,27 @@ const HomePage = () => {
     if (searchParams.get('login') === 'true') {
       setAuthModal(true);
       setAuthTab('login');
+      const socialError = searchParams.get('social_error');
+      if (socialError) setAuthError(socialError);
       searchParams.delete('login');
+      searchParams.delete('social_error');
       setSearchParams(searchParams);
+    }
+
+    const socialToken = searchParams.get('social_token');
+    const socialUser = searchParams.get('social_user');
+    if (socialToken && socialUser) {
+      try {
+        const user = JSON.parse(decodeURIComponent(socialUser));
+        dispatch(loginSuccess({ token: socialToken, user }));
+        searchParams.delete('social_token');
+        searchParams.delete('social_user');
+        setSearchParams(searchParams);
+        setAuthModal(false);
+      } catch {
+        setAuthError('Không thể hoàn tất đăng nhập mạng xã hội');
+        setAuthModal(true);
+      }
     }
   }, [searchParams, setSearchParams]);
 
@@ -119,6 +145,11 @@ const HomePage = () => {
     } finally {
       setAuthLoading(false);
     }
+  };
+
+  const handleSocialLogin = (provider) => {
+    setAuthError('');
+    window.location.href = getSocialLoginUrl(provider);
   };
 
   const slide = heroSlides[activeSlide];
@@ -401,6 +432,31 @@ const HomePage = () => {
               {authError}
             </div>
           )}
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => handleSocialLogin('google')}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800 transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-800"
+            >
+              <SocialIcon provider="google" />
+              Google
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSocialLogin('facebook')}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800 transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-800"
+            >
+              <SocialIcon provider="facebook" />
+              Facebook
+            </button>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+            <span className="text-xs font-bold uppercase text-slate-400">hoặc dùng email</span>
+            <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+          </div>
 
           {authTab === 'register' && (
             <label className="block">

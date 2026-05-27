@@ -1,5 +1,7 @@
 import api from './api.js';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
 export const loginAPI = async (credentials) => {
   const response = await api.post('/auth/login', credentials);
   return response.data;
@@ -41,3 +43,5 @@ export const getPublicUserProfileAPI = async (id) => {
   const response = await api.get(`/auth/users/${id}/public`);
   return response.data;
 };
+
+export const getSocialLoginUrl = (provider) => `${API_URL}/auth/${provider}`;

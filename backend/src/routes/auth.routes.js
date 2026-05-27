@@ -1,5 +1,17 @@
 import express from 'express';
-import { changePassword, getMe, getPublicProfile, login, register, updateAvatar, updateProfile } from '../controllers/auth.controller.js';
+import {
+  changePassword,
+  getMe,
+  getPublicProfile,
+  handleFacebookCallback,
+  handleGoogleCallback,
+  login,
+  register,
+  startFacebookLogin,
+  startGoogleLogin,
+  updateAvatar,
+  updateProfile
+} from '../controllers/auth.controller.js';
 import { getUsers } from '../controllers/user.controller.js';
 import { authenticate, authorizeAdmin } from '../middleware/auth.js';
 import upload from '../middleware/upload.js';
@@ -8,6 +20,10 @@ const router = express.Router();
 
 router.post('/register', register);
 router.post('/login', login);
+router.get('/google', startGoogleLogin);
+router.get('/google/callback', handleGoogleCallback);
+router.get('/facebook', startFacebookLogin);
+router.get('/facebook/callback', handleFacebookCallback);
 router.get('/users/:id/public', getPublicProfile);
 router.get('/me', authenticate, getMe);
 router.put('/profile', authenticate, updateProfile);

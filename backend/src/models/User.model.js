@@ -54,6 +54,22 @@ class User {
     await db.execute('UPDATE users SET avatar_url = ? WHERE id = ?', [avatarUrl, id]);
     return this.findById(id);
   }
+
+  static async findOrCreateSocialUser(profile) {
+    const existing = await this.findByEmail(profile.email);
+    if (existing) {
+      if (profile.avatar_url && !existing.avatar_url) {
+        await db.execute('UPDATE users SET avatar_url = ? WHERE id = ?', [profile.avatar_url, existing.id]);
+      }
+      return this.findById(existing.id);
+    }
+
+    const [result] = await db.execute(
+      'INSERT INTO users (full_name, email, password, role, avatar_url, theme_preference) VALUES (?, ?, ?, ?, ?, ?)',
+      [profile.full_name, profile.email, profile.password, 'customer', profile.avatar_url || '', 'light']
+    );
+    return this.findById(result.insertId);
+  }
 }
 
 export default User;
