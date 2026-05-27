@@ -5,12 +5,13 @@ import Navbar from '../components/layout/Navbar.jsx';
 import Dashboard from '../pages/admin/Dashboard.jsx';
 import ManageOrders from '../pages/admin/ManageOrders.jsx';
 import ManageProducts from '../pages/admin/ManageProducts.jsx';
+import AccountPage from '../pages/customer/AccountPage.jsx';
 import CartPage from '../pages/customer/CartPage.jsx';
 import HomePage from '../pages/customer/HomePage.jsx';
 import OrdersPage from '../pages/customer/OrdersPage.jsx';
-import AccountPage from '../pages/customer/AccountPage.jsx';
 import ProductDetailPage from '../pages/customer/ProductDetailPage.jsx';
 import ProductsPage from '../pages/customer/ProductsPage.jsx';
+import PublicProfilePage from '../pages/customer/PublicProfilePage.jsx';
 import PrivateRoute from './PrivateRoute.jsx';
 
 const ScrollToTop = () => {
@@ -23,49 +24,48 @@ const ScrollToTop = () => {
   return null;
 };
 
-const AppRouter = () => {
-  return (
-    <BrowserRouter>
-      <ScrollToTop />
-      <div className="flex min-h-screen flex-col">
-        <Navbar />
-        <main className="flex-grow">
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/products" element={<ProductsPage />} />
-            <Route path="/products/:id" element={<ProductDetailPage />} />
-            <Route path="/cart" element={<CartPage />} />
-            <Route path="/orders" element={<OrdersPage />} />
-            <Route path="/account" element={<PrivateRoute><AccountPage /></PrivateRoute>} />
-            <Route path="/account/profile" element={<PrivateRoute><AccountPage /></PrivateRoute>} />
-            <Route path="/account/addresses" element={<PrivateRoute><AccountPage /></PrivateRoute>} />
-            <Route path="/account/security" element={<PrivateRoute><AccountPage /></PrivateRoute>} />
-            <Route path="/account/notifications" element={<PrivateRoute><AccountPage /></PrivateRoute>} />
+const AppRouter = () => (
+  <BrowserRouter>
+    <ScrollToTop />
+    <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900 transition-colors dark:bg-slate-950 dark:text-slate-100">
+      <Navbar />
+      <main className="flex-grow">
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/products" element={<ProductsPage />} />
+          <Route path="/products/:id" element={<ProductDetailPage />} />
+          <Route path="/users/:id" element={<PublicProfilePage />} />
+          <Route path="/cart" element={<CartPage />} />
+          <Route path="/orders" element={<OrdersPage />} />
+          <Route path="/account" element={<PrivateRoute><AccountPage /></PrivateRoute>} />
+          <Route path="/account/profile" element={<PrivateRoute><AccountPage /></PrivateRoute>} />
+          <Route path="/account/addresses" element={<PrivateRoute><AccountPage /></PrivateRoute>} />
+          <Route path="/account/security" element={<PrivateRoute><AccountPage /></PrivateRoute>} />
+          <Route path="/account/notifications" element={<PrivateRoute><AccountPage /></PrivateRoute>} />
 
-            <Route path="/admin/dashboard" element={<PrivateRoute requireAdmin><Dashboard /></PrivateRoute>} />
-            <Route path="/admin/products" element={<PrivateRoute requireAdmin><ManageProducts /></PrivateRoute>} />
-            <Route path="/admin/orders" element={<PrivateRoute requireAdmin><ManageOrders /></PrivateRoute>} />
+          <Route path="/admin/dashboard" element={<PrivateRoute requireAdmin><Dashboard /></PrivateRoute>} />
+          <Route path="/admin/products" element={<PrivateRoute requireAdmin><ManageProducts /></PrivateRoute>} />
+          <Route path="/admin/orders" element={<PrivateRoute requireAdmin><ManageOrders /></PrivateRoute>} />
 
-            <Route
-              path="*"
-              element={(
-                <div className="grid min-h-[60vh] place-items-center bg-slate-50 px-4 text-center">
-                  <div>
-                    <h2 className="text-5xl font-black text-slate-950">404</h2>
-                    <p className="mt-3 text-sm text-slate-500">Trang bạn đang tìm kiếm không tồn tại.</p>
-                    <a href="/" className="mt-5 inline-flex rounded-md bg-premium-700 px-4 py-2 text-sm font-bold text-white hover:bg-premium-800">
-                      Về trang chủ
-                    </a>
-                  </div>
+          <Route
+            path="*"
+            element={(
+              <div className="grid min-h-[60vh] place-items-center bg-slate-50 px-4 text-center dark:bg-slate-950">
+                <div>
+                  <h2 className="text-5xl font-black text-slate-950 dark:text-white">404</h2>
+                  <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Trang bạn đang tìm kiếm không tồn tại.</p>
+                  <a href="/" className="mt-5 inline-flex rounded-md bg-premium-700 px-4 py-2 text-sm font-bold text-white hover:bg-premium-800">
+                    Về trang chủ
+                  </a>
                 </div>
-              )}
-            />
-          </Routes>
-        </main>
-        <Footer />
-      </div>
-    </BrowserRouter>
-  );
-};
+              </div>
+            )}
+          />
+        </Routes>
+      </main>
+      <Footer />
+    </div>
+  </BrowserRouter>
+);
 
 export default AppRouter;

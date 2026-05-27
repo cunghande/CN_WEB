@@ -237,12 +237,18 @@ class Product {
     await connection.execute('DELETE FROM product_variants WHERE product_id = ?', [productId]);
     const safeVariants = variants.length > 0
       ? variants
-      : [{ size: 'FreeSize', color: 'Mặc định', stock_quantity: 100 }];
+      : [{ size: 'FreeSize', color: 'Mặc định', image_url: '', stock_quantity: 100 }];
 
     for (const variant of safeVariants) {
       await connection.execute(
-        'INSERT INTO product_variants (product_id, size, color, stock_quantity) VALUES (?, ?, ?, ?)',
-        [productId, variant.size || 'FreeSize', variant.color || 'Mặc định', Number(variant.stock_quantity) || 0]
+        'INSERT INTO product_variants (product_id, size, color, image_url, stock_quantity) VALUES (?, ?, ?, ?, ?)',
+        [
+          productId,
+          variant.size || 'FreeSize',
+          variant.color || 'Mặc định',
+          variant.image_url || '',
+          Number(variant.stock_quantity) || 0
+        ]
       );
     }
   }

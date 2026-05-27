@@ -28,6 +28,14 @@ class User {
     return rows;
   }
 
+  static async findPublicById(id) {
+    const [rows] = await db.execute(
+      'SELECT id, full_name, avatar_url, gender, created_at FROM users WHERE id = ?',
+      [id]
+    );
+    return rows[0];
+  }
+
   static async updateProfile(id, profileData) {
     const { full_name, phone, gender, theme_preference } = profileData;
     await db.execute(

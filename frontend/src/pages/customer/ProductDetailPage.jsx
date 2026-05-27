@@ -1,17 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Heart, MessageCircle, MessageSquareReply, Share2, ShoppingBag, Star, ThumbsDown, ThumbsUp } from 'lucide-react';
-import useAuth from '../../hooks/useAuth.js';
-import useCart from '../../hooks/useCart.js';
+import { Heart, MessageCircle, MessageSquareReply, Share2, ShoppingBag, Star, ThumbsDown, ThumbsUp, UserRound } from 'lucide-react';
 import Button from '../../components/common/Button.jsx';
 import Spinner from '../../components/common/Spinner.jsx';
+import useAuth from '../../hooks/useAuth.js';
+import useCart from '../../hooks/useCart.js';
 import {
   addCommentReplyAPI,
   addProductCommentAPI,
   addProductReviewAPI,
   getProductByIdAPI,
-  setReplyReactionAPI,
   setCommentReactionAPI,
+  setReplyReactionAPI,
   toggleProductLikeAPI
 } from '../../services/productService.js';
 import { formatPrice } from '../../utils/formatPrice.js';
@@ -30,6 +30,14 @@ const parseGallery = (gallery) => {
     return [];
   }
 };
+
+const RatingStars = ({ value, size = 'h-5 w-5' }) => (
+  <div className="flex text-amber-400">
+    {[1, 2, 3, 4, 5].map((star) => (
+      <Star key={star} className={`${size} ${star <= Math.round(value || 0) ? 'fill-current' : 'fill-transparent'}`} />
+    ))}
+  </div>
+);
 
 const StarPicker = ({ value, hoverValue, onHover, onLeave, onChange }) => {
   const activeValue = hoverValue || value;
@@ -51,12 +59,14 @@ const StarPicker = ({ value, hoverValue, onHover, onLeave, onChange }) => {
   );
 };
 
-const RatingStars = ({ value }) => (
-  <div className="flex text-amber-400">
-    {[1, 2, 3, 4, 5].map((star) => (
-      <Star key={star} className={`h-5 w-5 ${star <= Math.round(value || 0) ? 'fill-current' : 'fill-transparent'}`} />
-    ))}
-  </div>
+const UserAvatarLink = ({ user }) => (
+  <Link to={`/users/${user.user_id}`} className="grid h-9 w-9 flex-shrink-0 place-items-center overflow-hidden rounded-full bg-slate-200 text-xs font-black text-slate-700 transition hover:ring-2 hover:ring-premium-500 dark:bg-slate-800 dark:text-slate-200">
+    {user.avatar_url ? (
+      <img src={getImageUrl(user.avatar_url)} alt={user.full_name} className="h-full w-full object-cover" />
+    ) : (
+      <UserRound className="h-4 w-4" />
+    )}
+  </Link>
 );
 
 const ProductDetailPage = () => {
@@ -74,12 +84,22 @@ const ProductDetailPage = () => {
   const [replyContent, setReplyContent] = useState('');
   const [message, setMessage] = useState('');
 
-  const loadProduct = async () => {
-    setLoading(true);
-    const res = await getProductByIdAPI(id);
-    setProduct(res.data);
-    setSelectedVariant(getLowestStockVariant(res.data));
-    setLoading(false);
+  const loadProduct = async ({ silent = false, keepVariantId = null } = {}) => {
+    if (!silent) setLoading(true);
+    const response = await getProductByIdAPI(id);
+    const nextProduct = response.data;
+    setProduct(nextProduct);
+    setSelectedVariant((current) => {
+      const targetId = keepVariantId || current?.id;
+      return nextProduct.variants?.find((variant) => variant.id === targetId) || getLowestStockVariant(nextProduct);
+    });
+    if (!silent) setLoading(false);
+  };
+
+  const refreshWithoutJump = async () => {
+    const top = window.scrollY;
+    await loadProduct({ silent: true, keepVariantId: selectedVariant?.id });
+    requestAnimationFrame(() => window.scrollTo(0, top));
   };
 
   useEffect(() => {
@@ -87,17 +107,20 @@ const ProductDetailPage = () => {
   }, [id]);
 
   useEffect(() => {
-    if (window.location.hash) {
+    if (window.location.hash && product) {
       window.setTimeout(() => {
         document.querySelector(window.location.hash)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 400);
+      }, 250);
     }
   }, [product]);
 
   const galleryImages = useMemo(() => {
     if (!product) return [];
-    return [product.image_url, ...parseGallery(product.gallery_json)].filter(Boolean).slice(0, 4);
+    const variantImages = product.variants?.map((variant) => variant.image_url).filter(Boolean) || [];
+    return [product.image_url, ...variantImages, ...parseGallery(product.gallery_json)].filter(Boolean).slice(0, 8);
   }, [product]);
+
+  const displayImage = selectedVariant?.image_url || product?.image_url;
 
   const requireAuth = (text) => {
     if (isAuthenticated) return false;
@@ -108,7 +131,7 @@ const ProductDetailPage = () => {
   const handleLikeProduct = async () => {
     if (requireAuth('Vui lòng đăng nhập để thích sản phẩm.')) return;
     await toggleProductLikeAPI(id);
-    await loadProduct();
+    await refreshWithoutJump();
   };
 
   const handleShare = async () => {
@@ -132,19 +155,19 @@ const ProductDetailPage = () => {
     if (!comment.trim()) return;
     await addProductCommentAPI(id, comment.trim());
     setComment('');
-    await loadProduct();
+    await refreshWithoutJump();
   };
 
   const handleReaction = async (commentId, reaction) => {
     if (requireAuth('Vui lòng đăng nhập để tương tác với bình luận.')) return;
     await setCommentReactionAPI(id, commentId, reaction);
-    await loadProduct();
+    await refreshWithoutJump();
   };
 
   const handleReplyReaction = async (commentId, replyId, reaction) => {
     if (requireAuth('Vui lòng đăng nhập để tương tác với phản hồi.')) return;
     await setReplyReactionAPI(id, commentId, replyId, reaction);
-    await loadProduct();
+    await refreshWithoutJump();
   };
 
   const handleReply = async (event, commentId) => {
@@ -154,7 +177,7 @@ const ProductDetailPage = () => {
     await addCommentReplyAPI(id, commentId, replyContent.trim());
     setReplyContent('');
     setReplyingTo(null);
-    await loadProduct();
+    await refreshWithoutJump();
   };
 
   const handleReview = async (event) => {
@@ -166,7 +189,7 @@ const ProductDetailPage = () => {
     }
     await addProductReviewAPI(id, { ...review, rating: Number(review.rating) });
     setReview({ rating: 5, content: '' });
-    await loadProduct();
+    await refreshWithoutJump();
   };
 
   if (loading) return <div className="py-24"><Spinner size="lg" /></div>;
@@ -181,11 +204,11 @@ const ProductDetailPage = () => {
         <div className="mt-6 grid gap-8 lg:grid-cols-2">
           <div className="space-y-4">
             <div className="overflow-hidden rounded-lg bg-white shadow-soft dark:bg-slate-900">
-              <img src={getImageUrl(product.image_url, fallbackImage)} alt={product.name} className="aspect-[4/5] w-full object-cover object-top" />
+              <img src={getImageUrl(displayImage, fallbackImage)} alt={product.name} className="aspect-[4/5] w-full object-cover object-top" />
             </div>
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-4 gap-3 sm:grid-cols-6">
               {galleryImages.map((image, index) => (
-                <img key={`${image}-${index}`} src={getImageUrl(image, fallbackImage)} alt="" className="aspect-square rounded-lg object-cover" />
+                <img key={`${image}-${index}`} src={getImageUrl(image, fallbackImage)} alt="" className="aspect-square rounded-lg border border-slate-200 object-cover dark:border-slate-800" />
               ))}
             </div>
           </div>
@@ -203,7 +226,7 @@ const ProductDetailPage = () => {
             <p className="mt-5 text-sm leading-7 text-slate-600 dark:text-slate-300">{product.description}</p>
 
             <div className="mt-6">
-              <div className="text-xs font-black uppercase text-slate-500">Chọn biến thể</div>
+              <div className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">Chọn biến thể</div>
               <div className="mt-3 flex flex-wrap gap-2">
                 {product.variants?.map((variant) => (
                   <button
@@ -213,14 +236,17 @@ const ProductDetailPage = () => {
                       setSelectedVariant(variant);
                       setQuantity(1);
                     }}
-                    className={`rounded-lg border px-4 py-3 text-left text-sm disabled:opacity-40 ${
+                    className={`flex min-w-[170px] items-center gap-3 rounded-lg border p-3 text-left text-sm disabled:opacity-40 ${
                       selectedVariant?.id === variant.id
-                        ? 'border-premium-700 bg-premium-50 text-premium-900'
-                        : 'border-slate-200 dark:border-slate-700 dark:text-white'
+                        ? 'border-premium-700 bg-premium-50 text-premium-900 dark:bg-premium-900/30 dark:text-premium-100'
+                        : 'border-slate-200 bg-white text-slate-800 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-800'
                     }`}
                   >
-                    <b>{variant.size}</b> - {variant.color}
-                    <span className="block text-xs text-slate-500">Còn {variant.stock_quantity}</span>
+                    <img src={getImageUrl(variant.image_url || product.image_url, fallbackImage)} alt={`${variant.size} ${variant.color}`} className="h-12 w-12 rounded-md object-cover object-top" />
+                    <span>
+                      <b>{variant.size}</b> - {variant.color}
+                      <span className="block text-xs text-slate-500 dark:text-slate-400">Còn {variant.stock_quantity}</span>
+                    </span>
                   </button>
                 ))}
               </div>
@@ -250,30 +276,28 @@ const ProductDetailPage = () => {
               </div>
             )}
             <form onSubmit={handleComment} className="mt-4 flex gap-3">
-              <input disabled={!product.can_review} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Viết bình luận công khai..." className="flex-1 rounded-lg border border-slate-200 px-4 py-3 disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:disabled:bg-slate-800" />
+              <input disabled={!product.can_review} value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Viết bình luận công khai..." className="flex-1 rounded-lg border border-slate-200 px-4 py-3 disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:disabled:bg-slate-800" />
               <Button type="submit" disabled={!product.can_review}>Gửi</Button>
             </form>
             <div className="mt-5 space-y-4">
               {product.comments?.length ? product.comments.map((item) => (
                 <div key={item.id} id={`comment-${item.id}`} className="rounded-lg bg-slate-50 p-4 ring-premium-300 target:ring-2 dark:bg-slate-950">
                   <div className="flex items-start gap-3">
-                    <div className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-full bg-slate-200 text-xs font-black text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                      {item.full_name?.charAt(0) || 'U'}
-                    </div>
+                    <UserAvatarLink user={item} />
                     <div className="min-w-0 flex-1">
-                      <b className="text-slate-950 dark:text-white">{item.full_name}</b>
+                      <Link to={`/users/${item.user_id}`} className="font-black text-slate-950 hover:text-premium-700 dark:text-white dark:hover:text-premium-300">{item.full_name}</Link>
                       {item.user_rating && (
                         <div className="mt-1 flex items-center gap-2">
-                          <RatingStars value={item.user_rating} />
+                          <RatingStars value={item.user_rating} size="h-4 w-4" />
                           <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Đã mua hàng - {item.user_rating} sao</span>
                         </div>
                       )}
                       <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">{item.content}</p>
                       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-bold">
-                        <button onClick={() => handleReaction(item.id, 'like')} className={`inline-flex items-center gap-1 rounded-md px-2 py-1 ${item.my_reaction === 'like' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
+                        <button onClick={() => handleReaction(item.id, 'like')} className={`inline-flex items-center gap-1 rounded-md px-2 py-1 ${item.my_reaction === 'like' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
                           <ThumbsUp className="h-4 w-4" /> {item.like_count || 0}
                         </button>
-                        <button onClick={() => handleReaction(item.id, 'dislike')} className={`inline-flex items-center gap-1 rounded-md px-2 py-1 ${item.my_reaction === 'dislike' ? 'bg-red-50 text-red-700' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
+                        <button onClick={() => handleReaction(item.id, 'dislike')} className={`inline-flex items-center gap-1 rounded-md px-2 py-1 ${item.my_reaction === 'dislike' ? 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-200' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
                           <ThumbsDown className="h-4 w-4" /> {item.dislike_count || 0}
                         </button>
                         <button onClick={() => setReplyingTo(replyingTo === item.id ? null : item.id)} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
@@ -283,7 +307,7 @@ const ProductDetailPage = () => {
 
                       {replyingTo === item.id && (
                         <form onSubmit={(event) => handleReply(event, item.id)} className="mt-3 flex gap-2">
-                          <input value={replyContent} onChange={(e) => setReplyContent(e.target.value)} placeholder="Nhập phản hồi..." className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white" />
+                          <input value={replyContent} onChange={(event) => setReplyContent(event.target.value)} placeholder="Nhập phản hồi..." className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white" />
                           <Button type="submit" size="sm">Gửi</Button>
                         </form>
                       )}
@@ -292,21 +316,26 @@ const ProductDetailPage = () => {
                         <div className="mt-3 space-y-2 border-l-2 border-slate-200 pl-4 dark:border-slate-800">
                           {item.replies.map((reply) => (
                             <div key={reply.id} className="rounded-md bg-white p-3 dark:bg-slate-900">
-                              <b className="text-sm text-slate-950 dark:text-white">{reply.full_name}</b>
-                              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{reply.content}</p>
-                              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-bold">
-                                <button onClick={() => handleReplyReaction(item.id, reply.id, 'like')} className={`inline-flex items-center gap-1 rounded-md px-2 py-1 ${reply.my_reaction === 'like' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
-                                  <ThumbsUp className="h-4 w-4" /> {reply.like_count || 0}
-                                </button>
-                                <button onClick={() => handleReplyReaction(item.id, reply.id, 'dislike')} className={`inline-flex items-center gap-1 rounded-md px-2 py-1 ${reply.my_reaction === 'dislike' ? 'bg-red-50 text-red-700' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
-                                  <ThumbsDown className="h-4 w-4" /> {reply.dislike_count || 0}
-                                </button>
-                                <button onClick={() => {
-                                  setReplyingTo(item.id);
-                                  setReplyContent(`@${reply.full_name} `);
-                                }} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
-                                  <MessageSquareReply className="h-4 w-4" /> Phản hồi
-                                </button>
+                              <div className="flex items-start gap-3">
+                                <UserAvatarLink user={reply} />
+                                <div className="min-w-0 flex-1">
+                                  <Link to={`/users/${reply.user_id}`} className="text-sm font-black text-slate-950 hover:text-premium-700 dark:text-white dark:hover:text-premium-300">{reply.full_name}</Link>
+                                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{reply.content}</p>
+                                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-bold">
+                                    <button onClick={() => handleReplyReaction(item.id, reply.id, 'like')} className={`inline-flex items-center gap-1 rounded-md px-2 py-1 ${reply.my_reaction === 'like' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
+                                      <ThumbsUp className="h-4 w-4" /> {reply.like_count || 0}
+                                    </button>
+                                    <button onClick={() => handleReplyReaction(item.id, reply.id, 'dislike')} className={`inline-flex items-center gap-1 rounded-md px-2 py-1 ${reply.my_reaction === 'dislike' ? 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-200' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
+                                      <ThumbsDown className="h-4 w-4" /> {reply.dislike_count || 0}
+                                    </button>
+                                    <button onClick={() => {
+                                      setReplyingTo(item.id);
+                                      setReplyContent(`@${reply.full_name} `);
+                                    }} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
+                                      <MessageSquareReply className="h-4 w-4" /> Phản hồi
+                                    </button>
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           ))}
@@ -337,14 +366,14 @@ const ProductDetailPage = () => {
                 />
                 <div className="mt-1 text-sm font-bold text-slate-500 dark:text-slate-400">Bạn đang chọn {ratingHover || review.rating} sao</div>
               </div>
-              <textarea value={review.content} onChange={(e) => setReview({ ...review, content: e.target.value })} placeholder="Cảm nhận của bạn..." className="w-full rounded-lg border border-slate-200 px-4 py-3 dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
+              <textarea disabled={!product.can_review} value={review.content} onChange={(event) => setReview({ ...review, content: event.target.value })} placeholder="Cảm nhận của bạn..." className="w-full rounded-lg border border-slate-200 px-4 py-3 disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:disabled:bg-slate-800" />
               <Button type="submit" disabled={!product.can_review}>Gửi đánh giá</Button>
             </form>
             <div className="mt-5 space-y-3">
               {product.reviews?.length ? product.reviews.map((item) => (
                 <div key={item.id} className="rounded-lg bg-slate-50 p-4 dark:bg-slate-950">
                   <div className="flex items-center gap-2">
-                    <b className="text-slate-950 dark:text-white">{item.full_name}</b>
+                    <Link to={`/users/${item.user_id}`} className="font-black text-slate-950 hover:text-premium-700 dark:text-white dark:hover:text-premium-300">{item.full_name}</Link>
                     <RatingStars value={item.rating} />
                   </div>
                   <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{item.content}</p>

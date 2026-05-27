@@ -3,6 +3,8 @@ import { generateToken } from '../config/jwt.js';
 import User from '../models/User.model.js';
 import { sendResponse } from '../utils/helpers.js';
 
+const invalidLoginMessage = 'Email hoặc mật khẩu không chính xác';
+
 export const register = async (req, res, next) => {
   try {
     const { full_name, email, password } = req.body;
@@ -34,25 +36,16 @@ export const login = async (req, res, next) => {
     }
 
     const user = await User.findByEmail(email);
-    if (!user) {
-      return sendResponse(res, 401, false, 'Email hoặc mật khẩu không chính xác');
-    }
+    if (!user) return sendResponse(res, 401, false, invalidLoginMessage);
 
     let isMatch = false;
-    if (user.password.startsWith('$2a$') || user.password.startsWith('$2b$')) {
+    if (user.password?.startsWith('$2a$') || user.password?.startsWith('$2b$')) {
       isMatch = await bcrypt.compare(password, user.password);
     } else {
-      isMatch = password === user.password || password === '123456';
+      isMatch = password === user.password;
     }
 
-    const demoEmails = ['admin@gmail.com', 'a@gmail.com', 'b@gmail.com'];
-    if (!isMatch && password === '123456' && demoEmails.includes(user.email)) {
-      isMatch = true;
-    }
-
-    if (!isMatch) {
-      return sendResponse(res, 401, false, 'Email hoặc mật khẩu không chính xác');
-    }
+    if (!isMatch) return sendResponse(res, 401, false, invalidLoginMessage);
 
     const token = generateToken({ id: user.id, email: user.email, role: user.role });
     const safeUser = await User.findById(user.id);
@@ -66,11 +59,18 @@ export const login = async (req, res, next) => {
 export const getMe = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id);
-    if (!user) {
-      return sendResponse(res, 404, false, 'Không tìm thấy tài khoản');
-    }
-
+    if (!user) return sendResponse(res, 404, false, 'Không tìm thấy tài khoản');
     return sendResponse(res, 200, true, 'Lấy thông tin tài khoản thành công', user);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getPublicProfile = async (req, res, next) => {
+  try {
+    const user = await User.findPublicById(req.params.id);
+    if (!user) return sendResponse(res, 404, false, 'Không tìm thấy người dùng');
+    return sendResponse(res, 200, true, 'Lấy hồ sơ công khai thành công', user);
   } catch (error) {
     next(error);
   }
@@ -79,9 +79,7 @@ export const getMe = async (req, res, next) => {
 export const updateProfile = async (req, res, next) => {
   try {
     const { full_name, phone, gender, theme_preference } = req.body;
-    if (!full_name) {
-      return sendResponse(res, 400, false, 'Vui lòng nhập họ tên');
-    }
+    if (!full_name) return sendResponse(res, 400, false, 'Vui lòng nhập họ tên');
 
     const user = await User.updateProfile(req.user.id, { full_name, phone, gender, theme_preference });
     return sendResponse(res, 200, true, 'Cập nhật hồ sơ thành công', user);
@@ -98,10 +96,11 @@ export const changePassword = async (req, res, next) => {
     }
 
     const user = await User.findByEmail(req.user.email);
-    const isMatch = await bcrypt.compare(current_password, user.password);
-    if (!isMatch) {
-      return sendResponse(res, 400, false, 'Mật khẩu hiện tại không đúng');
-    }
+    const isMatch = user.password?.startsWith('$2')
+      ? await bcrypt.compare(current_password, user.password)
+      : current_password === user.password;
+
+    if (!isMatch) return sendResponse(res, 400, false, 'Mật khẩu hiện tại không đúng');
 
     const hashedPassword = await bcrypt.hash(new_password, 10);
     await User.updatePassword(req.user.id, hashedPassword);
@@ -113,9 +112,7 @@ export const changePassword = async (req, res, next) => {
 
 export const updateAvatar = async (req, res, next) => {
   try {
-    if (!req.file) {
-      return sendResponse(res, 400, false, 'Vui lòng chọn ảnh đại diện');
-    }
+    if (!req.file) return sendResponse(res, 400, false, 'Vui lòng chọn ảnh đại diện');
 
     const user = await User.updateAvatar(req.user.id, `/uploads/${req.file.filename}`);
     return sendResponse(res, 200, true, 'Cập nhật ảnh đại diện thành công', user);

@@ -276,7 +276,7 @@ const HomePage = () => {
       <Modal isOpen={!!quickViewProduct} onClose={() => setQuickViewProduct(null)} title="Xem nhanh sản phẩm" maxWidth="max-w-4xl">
         {quickViewProduct && (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            <img src={getImageUrl(quickViewProduct.image_url, fallbackImage)} alt={quickViewProduct.name} className="aspect-[3/4] w-full rounded-lg object-cover object-top" />
+            <img src={getImageUrl(selectedVariant?.image_url || quickViewProduct.image_url, fallbackImage)} alt={quickViewProduct.name} className="aspect-[3/4] w-full rounded-lg object-cover object-top" />
             <div className="flex flex-col justify-between gap-6">
               <div>
                 <p className="text-xs font-bold uppercase text-premium-700">{quickViewProduct.category_name || 'Thời trang'}</p>

@@ -75,15 +75,15 @@ const ProductsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 py-10">
+    <div className="min-h-screen bg-slate-50 py-10 dark:bg-slate-950">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
             <p className="text-sm font-bold uppercase text-premium-700">Danh mục sản phẩm</p>
-            <h1 className="mt-1 text-3xl font-black text-slate-950">Bộ sưu tập thời trang</h1>
+            <h1 className="mt-1 text-3xl font-black text-slate-950 dark:text-white">Bộ sưu tập thời trang</h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-500">Tìm kiếm theo tên, danh mục, khoảng giá và tình trạng tồn kho.</p>
           </div>
-          <div className="rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700">
+          <div className="rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
             {filteredProducts.length} sản phẩm phù hợp
           </div>
         </div>
@@ -92,7 +92,7 @@ const ProductsPage = () => {
           <Sidebar onCategoryChange={handleCategoryChange} />
 
           <div className="flex-1 space-y-5">
-            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
                 <div className="relative md:col-span-2">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -122,7 +122,7 @@ const ProductsPage = () => {
             ) : error ? (
               <div className="rounded-lg border border-red-100 bg-red-50 p-6 text-center text-sm font-bold text-red-600">{error}</div>
             ) : filteredProducts.length === 0 ? (
-              <div className="rounded-lg border border-slate-200 bg-white p-12 text-center">
+              <div className="rounded-lg border border-slate-200 bg-white p-12 text-center dark:border-slate-800 dark:bg-slate-900">
                 <SlidersHorizontal className="mx-auto h-10 w-10 text-slate-300" />
                 <h3 className="mt-4 font-black text-slate-950">Không có sản phẩm phù hợp</h3>
                 <p className="mt-2 text-sm text-slate-500">Thử đổi từ khóa, danh mục hoặc khoảng giá.</p>
@@ -132,7 +132,7 @@ const ProductsPage = () => {
                 {filteredProducts.map((product) => {
                   const stock = getProductStock(product);
                   return (
-                    <article key={product.id} className="group overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition hover:shadow-soft">
+                    <article key={product.id} className="group overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition hover:shadow-soft dark:border-slate-800 dark:bg-slate-900">
                       <div className="relative aspect-[3/4] overflow-hidden bg-slate-100">
                         <img src={getImageUrl(product.image_url, fallbackImage)} alt={product.name} className="h-full w-full object-cover object-top transition duration-500 group-hover:scale-105" />
                         <button onClick={() => openQuickView(product)} className="absolute right-3 top-3 rounded-md bg-white p-2 text-slate-800 shadow hover:bg-premium-700 hover:text-white" aria-label="Xem nhanh">
@@ -143,7 +143,7 @@ const ProductsPage = () => {
                       </div>
                       <div className="space-y-3 p-4">
                         <div>
-                          <Link to={`/products/${product.id}`} className="line-clamp-1 font-black text-slate-950 hover:text-premium-700">{product.name}</Link>
+                          <Link to={`/products/${product.id}`} className="line-clamp-1 font-black text-slate-950 hover:text-premium-700 dark:text-white dark:hover:text-premium-300">{product.name}</Link>
                           <p className="mt-1 line-clamp-2 text-sm leading-5 text-slate-500">{product.description || 'Sản phẩm thời trang dễ phối đồ.'}</p>
                         </div>
                         <div className="flex items-center justify-between border-t border-slate-100 pt-3">
@@ -170,7 +170,7 @@ const ProductsPage = () => {
       <Modal isOpen={!!quickViewProduct} onClose={() => setQuickViewProduct(null)} title="Chi tiết sản phẩm" maxWidth="max-w-4xl">
         {quickViewProduct && (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            <img src={getImageUrl(quickViewProduct.image_url, fallbackImage)} alt={quickViewProduct.name} className="aspect-[3/4] w-full rounded-lg object-cover object-top" />
+            <img src={getImageUrl(selectedVariant?.image_url || quickViewProduct.image_url, fallbackImage)} alt={quickViewProduct.name} className="aspect-[3/4] w-full rounded-lg object-cover object-top" />
             <div className="flex flex-col justify-between gap-6">
               <div>
                 <p className="text-xs font-bold uppercase text-premium-700">{quickViewProduct.category_name || 'Thời trang'}</p>

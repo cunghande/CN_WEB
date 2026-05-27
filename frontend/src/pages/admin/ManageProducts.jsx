@@ -22,7 +22,7 @@ const categoryOptions = [
   { id: 15, name: 'Áo hoodie' }
 ];
 
-const emptyVariant = () => ({ size: '', color: '', stock_quantity: 0 });
+const emptyVariant = () => ({ size: '', color: '', image_url: '', stock_quantity: 0 });
 
 const ManageProducts = () => {
   const { products, loading, refreshProducts } = useProduct();
@@ -41,9 +41,9 @@ const ManageProducts = () => {
     image_url: '',
     imageFile: null,
     variants: [
-      { size: 'S', color: 'Đen', stock_quantity: 20 },
-      { size: 'M', color: 'Đen', stock_quantity: 30 },
-      { size: 'L', color: 'Đen', stock_quantity: 20 }
+      { size: 'S', color: 'Đen', image_url: '', stock_quantity: 20 },
+      { size: 'M', color: 'Đen', image_url: '', stock_quantity: 30 },
+      { size: 'L', color: 'Đen', image_url: '', stock_quantity: 20 }
     ]
   });
 
@@ -79,9 +79,9 @@ const ManageProducts = () => {
       image_url: '',
       imageFile: null,
       variants: [
-        { size: 'S', color: 'Đen', stock_quantity: 20 },
-        { size: 'M', color: 'Đen', stock_quantity: 30 },
-        { size: 'L', color: 'Đen', stock_quantity: 20 }
+        { size: 'S', color: 'Đen', image_url: '', stock_quantity: 20 },
+        { size: 'M', color: 'Đen', image_url: '', stock_quantity: 30 },
+        { size: 'L', color: 'Đen', image_url: '', stock_quantity: 20 }
       ]
     });
     setIsOpen(true);
@@ -101,6 +101,7 @@ const ManageProducts = () => {
         ? product.variants.map((variant) => ({
           size: variant.size,
           color: variant.color,
+          image_url: variant.image_url || '',
           stock_quantity: variant.stock_quantity
         }))
         : [emptyVariant()]
@@ -121,6 +122,7 @@ const ManageProducts = () => {
       .map((variant) => ({
         size: variant.size,
         color: variant.color,
+        image_url: variant.image_url || '',
         stock_quantity: Number(variant.stock_quantity) || 0
       }));
 
@@ -170,12 +172,12 @@ const ManageProducts = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 py-10">
+    <div className="min-h-screen bg-slate-50 py-10 dark:bg-slate-950">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
             <p className="text-sm font-bold uppercase text-premium-700">Kho hàng</p>
-            <h1 className="mt-1 text-3xl font-black text-slate-950">Quản lý sản phẩm</h1>
+            <h1 className="mt-1 text-3xl font-black text-slate-950 dark:text-white">Quản lý sản phẩm</h1>
             <p className="mt-2 text-sm text-slate-500">Thêm, sửa, xóa sản phẩm và quản lý nhiều biến thể size/màu.</p>
           </div>
           <Button onClick={openCreateModal}>
@@ -184,7 +186,7 @@ const ManageProducts = () => {
           </Button>
         </div>
 
-        <div className="mb-5 grid grid-cols-1 gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-3">
+        <div className="mb-5 grid grid-cols-1 gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:grid-cols-3">
           <div className="relative md:col-span-2">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
@@ -204,10 +206,10 @@ const ManageProducts = () => {
         {loading ? (
           <div className="py-24"><Spinner size="lg" /></div>
         ) : (
-          <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+          <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase text-slate-500">
+                <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
                   <tr>
                     <th className="p-4">Sản phẩm</th>
                     <th className="p-4">Danh mục</th>
@@ -221,7 +223,7 @@ const ManageProducts = () => {
                   {filteredProducts.map((product) => {
                     const stock = getProductStock(product);
                     return (
-                      <tr key={product.id} className="hover:bg-slate-50/60">
+                      <tr key={product.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/60">
                         <td className="p-4">
                           <div className="flex items-center gap-3">
                             {product.image_url ? (
@@ -230,7 +232,7 @@ const ManageProducts = () => {
                               <div className="grid h-12 w-12 place-items-center rounded-md bg-slate-100 text-slate-400"><ImageIcon className="h-5 w-5" /></div>
                             )}
                             <div>
-                              <div className="line-clamp-1 font-black text-slate-950">{product.name}</div>
+                              <div className="line-clamp-1 font-black text-slate-950 dark:text-white">{product.name}</div>
                               <div className="line-clamp-1 text-xs text-slate-500">{product.description || 'Chưa có mô tả'}</div>
                             </div>
                           </div>
@@ -292,7 +294,7 @@ const ManageProducts = () => {
 
           <div className="rounded-lg border border-slate-200 p-4">
             <div className="mb-3 flex items-center justify-between">
-              <h4 className="font-black text-slate-950">Biến thể size/màu/tồn kho</h4>
+              <h4 className="font-black text-slate-950 dark:text-white">Biến thể size/màu/tồn kho/ảnh</h4>
               <Button size="sm" variant="outline" onClick={() => updateForm('variants', [...form.variants, emptyVariant()])}>
                 <Plus className="h-4 w-4" />
                 Thêm biến thể
@@ -301,10 +303,11 @@ const ManageProducts = () => {
             <div className="space-y-2">
               {form.variants.map((variant, index) => (
                 <div key={index} className="grid grid-cols-12 gap-2">
-                  <input value={variant.size} onChange={(event) => updateVariant(index, 'size', event.target.value)} placeholder="Size" className="col-span-3 rounded-md border border-slate-200 px-3 py-2 text-sm" />
-                  <input value={variant.color} onChange={(event) => updateVariant(index, 'color', event.target.value)} placeholder="Màu" className="col-span-4 rounded-md border border-slate-200 px-3 py-2 text-sm" />
-                  <input type="number" value={variant.stock_quantity} onChange={(event) => updateVariant(index, 'stock_quantity', event.target.value)} placeholder="Tồn" className="col-span-3 rounded-md border border-slate-200 px-3 py-2 text-sm" />
-                  <button type="button" onClick={() => updateForm('variants', form.variants.filter((_, idx) => idx !== index))} className="col-span-2 rounded-md text-red-600 hover:bg-red-50">Xóa</button>
+                  <input value={variant.size} onChange={(event) => updateVariant(index, 'size', event.target.value)} placeholder="Size" className="col-span-2 rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-slate-700" />
+                  <input value={variant.color} onChange={(event) => updateVariant(index, 'color', event.target.value)} placeholder="Màu" className="col-span-2 rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-slate-700" />
+                  <input value={variant.image_url} onChange={(event) => updateVariant(index, 'image_url', event.target.value)} placeholder="URL ảnh biến thể" className="col-span-4 rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-slate-700" />
+                  <input type="number" value={variant.stock_quantity} onChange={(event) => updateVariant(index, 'stock_quantity', event.target.value)} placeholder="Tồn" className="col-span-2 rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-slate-700" />
+                  <button type="button" onClick={() => updateForm('variants', form.variants.filter((_, idx) => idx !== index))} className="col-span-2 rounded-md text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30">Xóa</button>
                 </div>
               ))}
             </div>
