@@ -171,19 +171,26 @@ const Navbar = () => {
 
             {user ? (
               <div className="hidden items-center gap-3 md:flex">
-                <Link to="/account" className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800">
-                  {user.avatar_url ? (
-                    <img src={user.avatar_url} alt={user.full_name} className="h-8 w-8 rounded-full object-cover" />
-                  ) : (
-                    <span className="grid h-8 w-8 place-items-center rounded-full bg-slate-200 text-xs font-black text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                      {user.full_name?.charAt(0) || 'U'}
-                    </span>
-                  )}
-                  <div className="text-right">
-                    <div className="text-xs font-bold text-slate-950 dark:text-white">{user.full_name}</div>
-                    <div className="text-[11px] capitalize text-slate-500 dark:text-slate-400">{user.role}</div>
+                <div className="group relative">
+                  <button className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800">
+                    {user.avatar_url ? (
+                      <img src={user.avatar_url} alt={user.full_name} className="h-8 w-8 rounded-full object-cover" />
+                    ) : (
+                      <span className="grid h-8 w-8 place-items-center rounded-full bg-slate-200 text-xs font-black text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                        {user.full_name?.charAt(0) || 'U'}
+                      </span>
+                    )}
+                    <div className="text-right">
+                      <div className="text-xs font-bold text-slate-950 dark:text-white">{user.full_name}</div>
+                      <div className="text-[11px] capitalize text-slate-500 dark:text-slate-400">{user.role}</div>
+                    </div>
+                  </button>
+                  <div className="invisible absolute right-0 top-full z-50 w-48 translate-y-2 rounded-lg border border-slate-200 bg-white py-2 opacity-0 shadow-xl transition group-hover:visible group-hover:translate-y-3 group-hover:opacity-100 dark:border-slate-800 dark:bg-slate-900">
+                    <Link to="/account/profile" className="block px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-premium-700 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-premium-300">Tài khoản của tôi</Link>
+                    <Link to="/orders" className="block px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-premium-700 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-premium-300">Đơn hàng</Link>
+                    <button onClick={handleLogout} className="block w-full px-4 py-2 text-left text-sm font-bold text-red-600 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950/35">Đăng xuất</button>
                   </div>
-                </Link>
+                </div>
                 <button
                   onClick={handleLogout}
                   className="rounded-md p-2 text-slate-500 hover:bg-red-50 hover:text-red-600 dark:text-slate-300 dark:hover:bg-red-950/35 dark:hover:text-red-300"

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Camera, KeyRound, MapPin, Moon, Save, Sun, Trash2 } from 'lucide-react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
+import { Camera, KeyRound, MapPin, Moon, Save, Sun, Trash2, UserRound } from 'lucide-react';
 import Button from '../../components/common/Button.jsx';
 import Spinner from '../../components/common/Spinner.jsx';
 import useAuth from '../../hooks/useAuth.js';
@@ -12,7 +12,6 @@ import { markAllNotificationsReadAPI, markNotificationReadAPI } from '../../serv
 import { setTheme, updateUser } from '../../redux/slices/authSlice.js';
 import { fetchNotifications } from '../../redux/slices/notificationSlice.js';
 import { getImageUrl } from '../../utils/imageUrl.js';
-import { useSelector } from 'react-redux';
 
 const emptyAddress = {
   receiver_name: '',
@@ -33,7 +32,12 @@ const AccountPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const notifications = useSelector((state) => state.notifications.items);
-  const [profile, setProfile] = useState({ full_name: user?.full_name || '', phone: user?.phone || '', theme_preference: user?.theme_preference || 'light' });
+  const [profile, setProfile] = useState({
+    full_name: user?.full_name || '',
+    phone: user?.phone || '',
+    gender: user?.gender || 'unspecified',
+    theme_preference: user?.theme_preference || 'light'
+  });
   const [passwords, setPasswords] = useState({ current_password: '', new_password: '' });
   const [addresses, setAddresses] = useState([]);
   const [address, setAddress] = useState(emptyAddress);
@@ -134,16 +138,17 @@ const AccountPage = () => {
     <div className="min-h-screen bg-slate-50 py-10 dark:bg-slate-950">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
-          <p className="text-sm font-bold uppercase text-premium-700 dark:text-premium-300">Tài khoản</p>
-          <h1 className="mt-1 text-3xl font-black text-slate-950 dark:text-white">Trung tâm cá nhân</h1>
+          <p className="text-sm font-bold uppercase text-premium-700 dark:text-premium-300">Tài khoản của tôi</p>
+          <h1 className="mt-1 text-3xl font-black text-slate-950 dark:text-white">Hồ sơ cá nhân</h1>
           {message && <p className="mt-2 text-sm font-bold text-emerald-600">{message}</p>}
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <h2 className="mb-5 flex items-center gap-2 text-lg font-black text-slate-950 dark:text-white"><UserRound className="h-5 w-5" /> Thông tin hồ sơ</h2>
             <div className="flex items-center gap-4">
               <img src={getImageUrl(user?.avatar_url, 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80')} alt={user?.full_name} className="h-20 w-20 rounded-full object-cover" />
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-md bg-premium-700 px-3 py-2 text-sm font-bold text-white">
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-md bg-premium-700 px-3 py-2 text-sm font-bold text-white hover:bg-premium-800">
                 <Camera className="h-4 w-4" />
                 Đổi avatar
                 <input type="file" accept="image/*" className="hidden" onChange={handleAvatar} />
@@ -151,8 +156,23 @@ const AccountPage = () => {
             </div>
 
             <form onSubmit={handleProfile} className="mt-6 space-y-4">
-              <input value={profile.full_name} onChange={(e) => setProfile({ ...profile, full_name: e.target.value })} className="w-full rounded-md border border-slate-200 px-3 py-2 dark:border-slate-700 dark:bg-slate-950 dark:text-white" placeholder="Họ tên" />
-              <input value={profile.phone || ''} onChange={(e) => setProfile({ ...profile, phone: e.target.value })} className="w-full rounded-md border border-slate-200 px-3 py-2 dark:border-slate-700 dark:bg-slate-950 dark:text-white" placeholder="Số điện thoại" />
+              <label className="block">
+                <span className="mb-1 block text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Họ tên</span>
+                <input value={profile.full_name} onChange={(e) => setProfile({ ...profile, full_name: e.target.value })} className="w-full rounded-md border border-slate-200 px-3 py-2 dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Số điện thoại</span>
+                <input value={profile.phone || ''} onChange={(e) => setProfile({ ...profile, phone: e.target.value })} className="w-full rounded-md border border-slate-200 px-3 py-2 dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Giới tính</span>
+                <select value={profile.gender || 'unspecified'} onChange={(e) => setProfile({ ...profile, gender: e.target.value })} className="w-full rounded-md border border-slate-200 px-3 py-2 dark:border-slate-700 dark:bg-slate-950 dark:text-white">
+                  <option value="unspecified">Chưa cập nhật</option>
+                  <option value="male">Nam</option>
+                  <option value="female">Nữ</option>
+                  <option value="other">Khác</option>
+                </select>
+              </label>
               <div className="grid grid-cols-2 gap-2">
                 <button type="button" onClick={() => setProfile({ ...profile, theme_preference: 'light' })} className={`rounded-md border p-3 text-sm font-bold ${profile.theme_preference === 'light' ? 'border-premium-700 bg-premium-50 text-premium-800' : 'border-slate-200 dark:border-slate-700 dark:text-white'}`}>
                   <Sun className="mx-auto mb-1 h-4 w-4" /> Sáng
@@ -165,7 +185,7 @@ const AccountPage = () => {
             </form>
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:col-span-2">
+          <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:col-span-2">
             <h2 className="flex items-center gap-2 text-lg font-black text-slate-950 dark:text-white"><MapPin className="h-5 w-5" /> Địa chỉ giao hàng</h2>
             <form onSubmit={handleAddress} className="mt-5 grid gap-3 md:grid-cols-2">
               <input value={address.receiver_name} onChange={(e) => setAddress({ ...address, receiver_name: e.target.value })} required placeholder="Người nhận" className="rounded-md border border-slate-200 px-3 py-2 dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
@@ -194,13 +214,13 @@ const AccountPage = () => {
                     <div className="font-black text-slate-950 dark:text-white">{item.receiver_name} - {item.receiver_phone}</div>
                     <div>{item.address_line}, {item.hamlet && `${item.hamlet}, `}{item.ward_name}, {item.district_name}, {item.province_name}</div>
                   </div>
-                  <button onClick={() => handleDeleteAddress(item.id)} className="rounded-md p-2 text-red-600 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>
+                  <button onClick={() => handleDeleteAddress(item.id)} className="rounded-md p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"><Trash2 className="h-4 w-4" /></button>
                 </div>
               ))}
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <h2 className="flex items-center gap-2 text-lg font-black text-slate-950 dark:text-white"><KeyRound className="h-5 w-5" /> Bảo mật</h2>
             <form onSubmit={handlePassword} className="mt-5 space-y-3">
               <input type="password" value={passwords.current_password} onChange={(e) => setPasswords({ ...passwords, current_password: e.target.value })} placeholder="Mật khẩu hiện tại" className="w-full rounded-md border border-slate-200 px-3 py-2 dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
@@ -209,9 +229,9 @@ const AccountPage = () => {
             </form>
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:col-span-2">
+          <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:col-span-2">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-black text-slate-950 dark:text-white">Thông báo đơn hàng</h2>
+              <h2 className="text-lg font-black text-slate-950 dark:text-white">Thông báo</h2>
               <Button variant="outline" size="sm" onClick={handleReadAll}>Đánh dấu đã đọc</Button>
             </div>
             <div className="mt-4 space-y-3">
@@ -222,7 +242,7 @@ const AccountPage = () => {
                   {item.actor_name && <div className="mt-1 text-xs font-bold text-premium-700 dark:text-premium-300">Từ: {item.actor_name}</div>}
                 </button>
               ))}
-              {notifications.length === 0 && <p className="text-sm text-slate-500">Chưa có thông báo.</p>}
+              {notifications.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400">Chưa có thông báo.</p>}
             </div>
           </section>
         </div>

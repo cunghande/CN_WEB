@@ -67,14 +67,30 @@ class Product {
     const [product] = await enrichProducts(products, currentUserId);
     product.comments = await this.getComments(id, currentUserId);
     product.reviews = await this.getReviews(id);
+    product.can_review = currentUserId ? await this.hasDeliveredPurchase(id, currentUserId) : false;
     return product;
+  }
+
+  static async hasDeliveredPurchase(productId, userId) {
+    const [rows] = await db.execute(`
+      SELECT 1
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.id
+      JOIN product_variants pv ON pv.id = oi.variant_id
+      WHERE o.user_id = ?
+        AND o.status = 'delivered'
+        AND pv.product_id = ?
+      LIMIT 1
+    `, [userId, productId]);
+    return rows.length > 0;
   }
 
   static async getComments(productId, currentUserId = null) {
     const [rows] = await db.execute(`
-      SELECT pc.*, u.full_name, u.avatar_url
+      SELECT pc.*, u.full_name, u.avatar_url, pr.rating AS user_rating
       FROM product_comments pc
       JOIN users u ON pc.user_id = u.id
+      LEFT JOIN product_reviews pr ON pr.product_id = pc.product_id AND pr.user_id = pc.user_id
       WHERE pc.product_id = ?
       ORDER BY pc.id DESC
     `, [productId]);
@@ -108,6 +124,31 @@ class Product {
       ORDER BY pcr.id ASC
     `, commentIds);
 
+    const replyIds = replies.map((reply) => reply.id);
+    let replyReactionCounts = [];
+    let myReplyReactions = [];
+    if (replyIds.length > 0) {
+      const replyPlaceholders = replyIds.map(() => '?').join(',');
+      const [replyCounts] = await db.execute(`
+        SELECT reply_id,
+          SUM(reaction = 'like') AS like_count,
+          SUM(reaction = 'dislike') AS dislike_count
+        FROM product_comment_reply_reactions
+        WHERE reply_id IN (${replyPlaceholders})
+        GROUP BY reply_id
+      `, replyIds);
+      replyReactionCounts = replyCounts;
+
+      if (currentUserId) {
+        const [myRows] = await db.execute(`
+          SELECT reply_id, reaction
+          FROM product_comment_reply_reactions
+          WHERE user_id = ? AND reply_id IN (${replyPlaceholders})
+        `, [currentUserId, ...replyIds]);
+        myReplyReactions = myRows;
+      }
+    }
+
     return rows.map((comment) => {
       const counts = reactionCounts.find((item) => item.comment_id === comment.id);
       const myReaction = myReactions.find((item) => item.comment_id === comment.id);
@@ -116,7 +157,18 @@ class Product {
         like_count: Number(counts?.like_count || 0),
         dislike_count: Number(counts?.dislike_count || 0),
         my_reaction: myReaction?.reaction || null,
-        replies: replies.filter((reply) => reply.comment_id === comment.id)
+        replies: replies
+          .filter((reply) => reply.comment_id === comment.id)
+          .map((reply) => {
+            const counts = replyReactionCounts.find((item) => item.reply_id === reply.id);
+            const myReaction = myReplyReactions.find((item) => item.reply_id === reply.id);
+            return {
+              ...reply,
+              like_count: Number(counts?.like_count || 0),
+              dislike_count: Number(counts?.dislike_count || 0),
+              my_reaction: myReaction?.reaction || null
+            };
+          })
       };
     });
   }
@@ -226,6 +278,9 @@ class Product {
   }
 
   static async addComment(productId, userId, content) {
+    const canReview = await this.hasDeliveredPurchase(productId, userId);
+    if (!canReview) return null;
+
     const [result] = await db.execute(
       'INSERT INTO product_comments (product_id, user_id, content) VALUES (?, ?, ?)',
       [productId, userId, content]
@@ -342,6 +397,9 @@ class Product {
   }
 
   static async addReview(productId, userId, rating, content = '') {
+    const canReview = await this.hasDeliveredPurchase(productId, userId);
+    if (!canReview) return null;
+
     await db.execute(
       `INSERT INTO product_reviews (product_id, user_id, rating, content)
        VALUES (?, ?, ?, ?)
@@ -349,6 +407,51 @@ class Product {
       [productId, userId, rating, content]
     );
     return true;
+  }
+
+  static async setReplyReaction(productId, commentId, replyId, userId, reaction) {
+    const [replies] = await db.execute(
+      `SELECT pcr.*, pc.user_id AS comment_owner_id
+       FROM product_comment_replies pcr
+       JOIN product_comments pc ON pc.id = pcr.comment_id
+       WHERE pcr.id = ? AND pcr.comment_id = ? AND pcr.product_id = ?`,
+      [replyId, commentId, productId]
+    );
+    const reply = replies[0];
+    if (!reply) return null;
+
+    const [existing] = await db.execute(
+      'SELECT reaction FROM product_comment_reply_reactions WHERE reply_id = ? AND user_id = ?',
+      [replyId, userId]
+    );
+
+    if (existing[0]?.reaction === reaction) {
+      await db.execute('DELETE FROM product_comment_reply_reactions WHERE reply_id = ? AND user_id = ?', [replyId, userId]);
+      return { reaction: null };
+    }
+
+    await db.execute(
+      `INSERT INTO product_comment_reply_reactions (reply_id, user_id, reaction)
+       VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE reaction = VALUES(reaction), updated_at = CURRENT_TIMESTAMP`,
+      [replyId, userId, reaction]
+    );
+
+    if (reply.user_id !== userId) {
+      const [actorRows] = await db.execute('SELECT full_name FROM users WHERE id = ?', [userId]);
+      await Notification.create({
+        user_id: reply.user_id,
+        actor_user_id: userId,
+        title: reaction === 'like' ? 'Phản hồi của bạn có lượt thích' : 'Phản hồi của bạn có lượt không thích',
+        message: `${actorRows[0]?.full_name || 'Một người dùng'} đã ${reaction === 'like' ? 'thích' : 'không thích'} phản hồi của bạn.`,
+        type: 'reply_reaction',
+        target_url: `/products/${productId}#comment-${commentId}`,
+        entity_type: 'product_comment_reply',
+        entity_id: replyId
+      });
+    }
+
+    return { reaction };
   }
 }
 

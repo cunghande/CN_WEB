@@ -18,11 +18,9 @@ export const register = async (req, res, next) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const userId = await User.create({ full_name, email, password: hashedPassword, role: 'customer' });
     const token = generateToken({ id: userId, email, role: 'customer' });
+    const user = await User.findById(userId);
 
-    return sendResponse(res, 201, true, 'Đăng ký tài khoản thành công', {
-      user: { id: userId, full_name, email, role: 'customer', theme_preference: 'light' },
-      token
-    });
+    return sendResponse(res, 201, true, 'Đăng ký tài khoản thành công', { user, token });
   } catch (error) {
     next(error);
   }
@@ -80,12 +78,12 @@ export const getMe = async (req, res, next) => {
 
 export const updateProfile = async (req, res, next) => {
   try {
-    const { full_name, phone, theme_preference } = req.body;
+    const { full_name, phone, gender, theme_preference } = req.body;
     if (!full_name) {
       return sendResponse(res, 400, false, 'Vui lòng nhập họ tên');
     }
 
-    const user = await User.updateProfile(req.user.id, { full_name, phone, theme_preference });
+    const user = await User.updateProfile(req.user.id, { full_name, phone, gender, theme_preference });
     return sendResponse(res, 200, true, 'Cập nhật hồ sơ thành công', user);
   } catch (error) {
     next(error);

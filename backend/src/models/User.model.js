@@ -8,7 +8,7 @@ class User {
 
   static async findById(id) {
     const [rows] = await db.execute(
-      'SELECT id, full_name, email, role, avatar_url, phone, theme_preference, created_at FROM users WHERE id = ?',
+      'SELECT id, full_name, email, role, avatar_url, phone, gender, theme_preference, created_at FROM users WHERE id = ?',
       [id]
     );
     return rows[0];
@@ -24,15 +24,15 @@ class User {
   }
 
   static async findAll() {
-    const [rows] = await db.execute('SELECT id, full_name, email, role, avatar_url, phone, theme_preference, created_at FROM users ORDER BY id DESC');
+    const [rows] = await db.execute('SELECT id, full_name, email, role, avatar_url, phone, gender, theme_preference, created_at FROM users ORDER BY id DESC');
     return rows;
   }
 
   static async updateProfile(id, profileData) {
-    const { full_name, phone, theme_preference } = profileData;
+    const { full_name, phone, gender, theme_preference } = profileData;
     await db.execute(
-      'UPDATE users SET full_name = ?, phone = ?, theme_preference = ? WHERE id = ?',
-      [full_name, phone || null, theme_preference || 'light', id]
+      'UPDATE users SET full_name = ?, phone = ?, gender = ?, theme_preference = ? WHERE id = ?',
+      [full_name, phone || null, gender || 'unspecified', theme_preference || 'light', id]
     );
     return this.findById(id);
   }

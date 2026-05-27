@@ -105,6 +105,7 @@ export const addComment = async (req, res, next) => {
     const { content } = req.body;
     if (!content || !content.trim()) return sendResponse(res, 400, false, 'Vui lòng nhập bình luận');
     const id = await Product.addComment(req.params.id, req.user.id, content.trim());
+    if (!id) return sendResponse(res, 403, false, 'Bạn cần mua và nhận sản phẩm trước khi bình luận');
     return sendResponse(res, 201, true, 'Đã gửi bình luận', { id });
   } catch (error) {
     next(error);
@@ -116,7 +117,8 @@ export const addReview = async (req, res, next) => {
     const { rating, content } = req.body;
     const safeRating = Number(rating);
     if (safeRating < 1 || safeRating > 5) return sendResponse(res, 400, false, 'Rating phải từ 1 đến 5');
-    await Product.addReview(req.params.id, req.user.id, safeRating, content || '');
+    const ok = await Product.addReview(req.params.id, req.user.id, safeRating, content || '');
+    if (!ok) return sendResponse(res, 403, false, 'Bạn cần mua và nhận sản phẩm trước khi đánh giá');
     return sendResponse(res, 201, true, 'Đã gửi đánh giá');
   } catch (error) {
     next(error);
@@ -154,6 +156,21 @@ export const addCommentReply = async (req, res, next) => {
     const id = await Product.addCommentReply(req.params.productId, req.params.commentId, req.user.id, content.trim());
     if (!id) return sendResponse(res, 404, false, 'Không tìm thấy bình luận');
     return sendResponse(res, 201, true, 'Đã gửi phản hồi', { id });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const setReplyReaction = async (req, res, next) => {
+  try {
+    const { reaction } = req.body;
+    if (!['like', 'dislike'].includes(reaction)) {
+      return sendResponse(res, 400, false, 'Reaction không hợp lệ');
+    }
+
+    const result = await Product.setReplyReaction(req.params.productId, req.params.commentId, req.params.replyId, req.user.id, reaction);
+    if (!result) return sendResponse(res, 404, false, 'Không tìm thấy phản hồi');
+    return sendResponse(res, 200, true, 'Đã cập nhật cảm xúc phản hồi', result);
   } catch (error) {
     next(error);
   }

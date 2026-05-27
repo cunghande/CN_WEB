@@ -59,6 +59,11 @@ export const addCommentReplyAPI = async (productId, commentId, content) => {
   return response.data;
 };
 
+export const setReplyReactionAPI = async (productId, commentId, replyId, reaction) => {
+  const response = await api.post(`/products/${productId}/comments/${commentId}/replies/${replyId}/reaction`, { reaction });
+  return response.data;
+};
+
 export const addProductReviewAPI = async (id, reviewData) => {
   const response = await api.post(`/products/${id}/reviews`, reviewData);
   return response.data;
