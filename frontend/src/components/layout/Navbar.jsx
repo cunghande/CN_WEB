@@ -192,14 +192,14 @@ const Navbar = () => {
                         </div>
                         <Link onClick={() => setAccountOpen(false)} to="/account/profile" className="block px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-premium-700 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-premium-300">Tài khoản của tôi</Link>
                         <Link onClick={() => setAccountOpen(false)} to="/orders" className="block px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-premium-700 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-premium-300">Đơn hàng</Link>
-                        <button onClick={handleLogout} className="block w-full px-4 py-2.5 text-left text-sm font-bold text-red-600 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950/35">Đăng xuất</button>
+                        <button onClick={handleLogout} className="block w-full px-4 py-2.5 text-left text-sm font-bold text-red-600 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950/40">Đăng xuất</button>
                       </div>
                     </div>
                   )}
                 </div>
               </div>
             ) : (
-              <Link to="/?login=true" className="hidden items-center gap-2 rounded-md bg-premium-700 px-4 py-2 text-sm font-bold text-white hover:bg-premium-800 md:inline-flex">
+              <Link to="/?login=true" className="hidden items-center gap-2 rounded-md bg-premium-700 px-4 py-2 text-sm font-bold text-white hover:bg-premium-800 dark:bg-premium-500 dark:text-slate-950 dark:hover:bg-premium-400 md:inline-flex">
                 <User className="h-4 w-4" />
                 Đăng nhập
               </Link>

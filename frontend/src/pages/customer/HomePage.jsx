@@ -369,7 +369,7 @@ const HomePage = () => {
         </div>
 
         <form onSubmit={handleAuthSubmit} className="mt-5 space-y-4">
-          <div className="grid grid-cols-2 rounded-lg bg-slate-100 p-1">
+          <div className="grid grid-cols-2 rounded-lg bg-slate-100 p-1 dark:bg-slate-950">
             <button
               type="button"
               onClick={() => {
@@ -377,7 +377,7 @@ const HomePage = () => {
                 setAuthError('');
               }}
               className={`rounded-md px-3 py-2.5 text-sm font-black transition ${
-                authTab === 'login' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                authTab === 'login' ? 'bg-white text-slate-950 shadow-sm dark:bg-slate-800 dark:text-white' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
               }`}
             >
               Đăng nhập
@@ -389,7 +389,7 @@ const HomePage = () => {
                 setAuthError('');
               }}
               className={`rounded-md px-3 py-2.5 text-sm font-black transition ${
-                authTab === 'register' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                authTab === 'register' ? 'bg-white text-slate-950 shadow-sm dark:bg-slate-800 dark:text-white' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
               }`}
             >
               Đăng ký
@@ -404,23 +404,23 @@ const HomePage = () => {
 
           {authTab === 'register' && (
             <label className="block">
-              <span className="mb-1.5 block text-xs font-black uppercase text-slate-500">Họ và tên</span>
-              <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 focus-within:border-premium-600 focus-within:ring-2 focus-within:ring-premium-100">
+              <span className="mb-1.5 block text-xs font-black uppercase text-slate-500 dark:text-slate-400">Họ và tên</span>
+              <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 focus-within:border-premium-600 focus-within:ring-2 focus-within:ring-premium-100 dark:border-slate-700 dark:bg-slate-950 dark:focus-within:ring-premium-900/40">
                 <User className="h-5 w-5 text-slate-400" />
                 <input
                   required
                   value={fullName}
                   onChange={(event) => setFullName(event.target.value)}
                   placeholder="Ví dụ: Nguyễn Văn A"
-                  className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
+                  className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400 dark:text-white"
                 />
               </div>
             </label>
           )}
 
           <label className="block">
-            <span className="mb-1.5 block text-xs font-black uppercase text-slate-500">Email</span>
-            <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 focus-within:border-premium-600 focus-within:ring-2 focus-within:ring-premium-100">
+            <span className="mb-1.5 block text-xs font-black uppercase text-slate-500 dark:text-slate-400">Email</span>
+            <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 focus-within:border-premium-600 focus-within:ring-2 focus-within:ring-premium-100 dark:border-slate-700 dark:bg-slate-950 dark:focus-within:ring-premium-900/40">
               <Mail className="h-5 w-5 text-slate-400" />
               <input
                 required
@@ -429,14 +429,14 @@ const HomePage = () => {
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="you@example.com"
                 autoComplete="email"
-                className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
+                className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400 dark:text-white"
               />
             </div>
           </label>
 
           <label className="block">
-            <span className="mb-1.5 block text-xs font-black uppercase text-slate-500">Mật khẩu</span>
-            <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 focus-within:border-premium-600 focus-within:ring-2 focus-within:ring-premium-100">
+            <span className="mb-1.5 block text-xs font-black uppercase text-slate-500 dark:text-slate-400">Mật khẩu</span>
+            <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 focus-within:border-premium-600 focus-within:ring-2 focus-within:ring-premium-100 dark:border-slate-700 dark:bg-slate-950 dark:focus-within:ring-premium-900/40">
               <Lock className="h-5 w-5 text-slate-400" />
               <input
                 required
@@ -445,12 +445,12 @@ const HomePage = () => {
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder="Nhập mật khẩu"
                 autoComplete={authTab === 'login' ? 'current-password' : 'new-password'}
-                className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
+                className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400 dark:text-white"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((visible) => !visible)}
-                className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-white"
                 aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -460,8 +460,8 @@ const HomePage = () => {
 
           {authTab === 'register' && (
             <label className="block">
-              <span className="mb-1.5 block text-xs font-black uppercase text-slate-500">Xác nhận mật khẩu</span>
-              <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 focus-within:border-premium-600 focus-within:ring-2 focus-within:ring-premium-100">
+              <span className="mb-1.5 block text-xs font-black uppercase text-slate-500 dark:text-slate-400">Xác nhận mật khẩu</span>
+              <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 focus-within:border-premium-600 focus-within:ring-2 focus-within:ring-premium-100 dark:border-slate-700 dark:bg-slate-950 dark:focus-within:ring-premium-900/40">
                 <Lock className="h-5 w-5 text-slate-400" />
                 <input
                   required
@@ -470,7 +470,7 @@ const HomePage = () => {
                   onChange={(event) => setConfirmPassword(event.target.value)}
                   placeholder="Nhập lại mật khẩu"
                   autoComplete="new-password"
-                  className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
+                  className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400 dark:text-white"
                 />
               </div>
             </label>
@@ -480,7 +480,7 @@ const HomePage = () => {
             {authLoading ? <Spinner size="sm" /> : authTab === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'}
           </Button>
 
-          <p className="text-center text-xs leading-5 text-slate-500">
+          <p className="text-center text-xs leading-5 text-slate-500 dark:text-slate-400">
             Bằng việc tiếp tục, bạn đồng ý sử dụng tài khoản để quản lý đơn hàng, địa chỉ giao hàng và thông báo từ cửa hàng.
           </p>
         </form>
