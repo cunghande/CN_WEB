@@ -87,7 +87,7 @@ class Product {
 
   static async getComments(productId, currentUserId = null) {
     const [rows] = await db.execute(`
-      SELECT pc.*, u.full_name, u.avatar_url, pr.rating AS user_rating
+      SELECT pc.*, u.full_name, u.avatar_url, pr.rating AS user_rating, pr.image_url AS review_image_url
       FROM product_comments pc
       JOIN users u ON pc.user_id = u.id
       LEFT JOIN product_reviews pr ON pr.product_id = pc.product_id AND pr.user_id = pc.user_id
@@ -367,6 +367,11 @@ class Product {
     const comment = comments[0];
     if (!comment) return null;
 
+    const [users] = await db.execute('SELECT role FROM users WHERE id = ?', [userId]);
+    const isAdmin = users[0]?.role === 'admin';
+    const isCommentOwner = comment.user_id === userId;
+    if (!isAdmin && !isCommentOwner) return 'FORBIDDEN';
+
     const [result] = await db.execute(
       'INSERT INTO product_comment_replies (comment_id, product_id, user_id, content) VALUES (?, ?, ?, ?)',
       [commentId, productId, userId, content]
@@ -402,16 +407,25 @@ class Product {
     return result.insertId;
   }
 
-  static async addReview(productId, userId, rating, content = '') {
+  static async addReview(productId, userId, rating, content = '', imageUrl = '') {
     const canReview = await this.hasDeliveredPurchase(productId, userId);
     if (!canReview) return null;
 
-    await db.execute(
-      `INSERT INTO product_reviews (product_id, user_id, rating, content)
-       VALUES (?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE rating = VALUES(rating), content = VALUES(content), created_at = CURRENT_TIMESTAMP`,
-      [productId, userId, rating, content]
-    );
+    if (imageUrl) {
+      await db.execute(
+        `INSERT INTO product_reviews (product_id, user_id, rating, content, image_url)
+         VALUES (?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE rating = VALUES(rating), content = VALUES(content), image_url = VALUES(image_url), created_at = CURRENT_TIMESTAMP`,
+        [productId, userId, rating, content, imageUrl]
+      );
+    } else {
+      await db.execute(
+        `INSERT INTO product_reviews (product_id, user_id, rating, content)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE rating = VALUES(rating), content = VALUES(content), created_at = CURRENT_TIMESTAMP`,
+        [productId, userId, rating, content]
+      );
+    }
     return true;
   }
 

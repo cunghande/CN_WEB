@@ -12,6 +12,16 @@ export const registerAPI = async (userData) => {
   return response.data;
 };
 
+export const forgotPasswordAPI = async (email) => {
+  const response = await api.post('/auth/forgot-password', { email });
+  return response.data;
+};
+
+export const resetPasswordAPI = async (passwordData) => {
+  const response = await api.post('/auth/reset-password', passwordData);
+  return response.data;
+};
+
 export const getMeAPI = async () => {
   const response = await api.get('/auth/me');
   return response.data;

@@ -1,7 +1,8 @@
+import Coupon from '../models/Coupon.model.js';
 import Notification from '../models/Notification.model.js';
 import Order from '../models/Order.model.js';
 import UserAddress from '../models/UserAddress.model.js';
-import { sendOrderConfirmationEmail } from '../services/emailService.js';
+import { sendOrderConfirmationEmail, sendOrderStatusEmail } from '../services/emailService.js';
 import { buildShippingQuote } from '../services/shippingService.js';
 import { sendResponse } from '../utils/helpers.js';
 
@@ -16,7 +17,7 @@ const statusLabels = {
 
 export const createOrder = async (req, res, next) => {
   try {
-    const { items, address_id, shipping_note } = req.body;
+    const { items, address_id, shipping_note, coupon_code, user_coupon_id, coupons } = req.body;
     if (!items || items.length === 0 || !address_id) {
       return sendResponse(res, 400, false, 'Vui lòng chọn sản phẩm và địa chỉ giao hàng');
     }
@@ -26,20 +27,54 @@ export const createOrder = async (req, res, next) => {
 
     const subtotal_amount = items.reduce((sum, item) => sum + Number(item.unit_price) * Number(item.quantity), 0);
     const { shipping_fee } = buildShippingQuote(address);
-    const total_amount = subtotal_amount + shipping_fee;
+
+    let couponList = coupons || [];
+    if (!coupons && (coupon_code || user_coupon_id)) {
+      couponList = [{ code: coupon_code, user_coupon_id }];
+    }
+
+    let applied_coupons = [];
+    let discount_amount = 0;
+    let shipping_discount_amount = 0;
+
+    if (couponList.length > 0) {
+      const couponResult = await Coupon.validateMultiple({
+        coupons: couponList,
+        userId: req.user.id,
+        subtotalAmount: subtotal_amount,
+        shippingFee: shipping_fee
+      });
+      if (!couponResult.valid || couponResult.errors.length > 0) {
+        return sendResponse(res, 400, false, couponResult.errors[0]?.message || 'Có mã giảm giá không hợp lệ');
+      }
+      applied_coupons = couponResult.applied_coupons || [];
+      discount_amount = couponResult.total_discount_amount || 0;
+      shipping_discount_amount = couponResult.total_shipping_discount_amount || 0;
+    }
+
+    const total_amount = Math.max(0, subtotal_amount + shipping_fee - discount_amount - shipping_discount_amount);
 
     const orderId = await Order.create({
       user_id: req.user.id,
       items,
       subtotal_amount,
       shipping_fee,
+      applied_coupons,
+      discount_amount,
+      shipping_discount_amount,
       total_amount,
       address,
       shipping_note
     });
 
-    sendOrderConfirmationEmail(req.user.email, orderId, total_amount);
-    return sendResponse(res, 201, true, 'Đặt hàng thành công', { order_id: orderId, shipping_fee, total_amount });
+    await sendOrderConfirmationEmail(req.user.email, orderId, total_amount);
+    return sendResponse(res, 201, true, 'Đặt hàng thành công', {
+      order_id: orderId,
+      shipping_fee,
+      discount_amount,
+      shipping_discount_amount,
+      total_amount
+    });
   } catch (error) {
     next(error);
   }
@@ -79,7 +114,9 @@ export const getAllOrders = async (req, res, next) => {
 export const updateOrderStatus = async (req, res, next) => {
   try {
     const { status } = req.body;
-    if (!validStatuses.includes(status)) return sendResponse(res, 400, false, 'Trạng thái đơn hàng không hợp lệ');
+    if (!validStatuses.includes(status)) {
+      return sendResponse(res, 400, false, 'Trạng thái đơn hàng không hợp lệ');
+    }
 
     const order = await Order.updateStatus(req.params.id, status);
     if (!order) return sendResponse(res, 404, false, 'Không tìm thấy đơn hàng');
@@ -95,6 +132,8 @@ export const updateOrderStatus = async (req, res, next) => {
       entity_type: 'order',
       entity_id: order.id
     });
+
+    await sendOrderStatusEmail(order.email, order.id, statusLabels[status], order.total_amount);
 
     return sendResponse(res, 200, true, 'Cập nhật trạng thái đơn hàng thành công');
   } catch (error) {

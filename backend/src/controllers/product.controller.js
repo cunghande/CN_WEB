@@ -115,9 +115,10 @@ export const addComment = async (req, res, next) => {
 export const addReview = async (req, res, next) => {
   try {
     const { rating, content } = req.body;
+    const imageUrl = req.file ? `/uploads/${req.file.filename}` : '';
     const safeRating = Number(rating);
     if (safeRating < 1 || safeRating > 5) return sendResponse(res, 400, false, 'Rating phải từ 1 đến 5');
-    const ok = await Product.addReview(req.params.id, req.user.id, safeRating, content || '');
+    const ok = await Product.addReview(req.params.id, req.user.id, safeRating, content || '', imageUrl);
     if (!ok) return sendResponse(res, 403, false, 'Bạn cần mua và nhận sản phẩm trước khi đánh giá');
     return sendResponse(res, 201, true, 'Đã gửi đánh giá');
   } catch (error) {
@@ -154,6 +155,7 @@ export const addCommentReply = async (req, res, next) => {
     const { content } = req.body;
     if (!content || !content.trim()) return sendResponse(res, 400, false, 'Vui lòng nhập nội dung phản hồi');
     const id = await Product.addCommentReply(req.params.productId, req.params.commentId, req.user.id, content.trim());
+    if (id === 'FORBIDDEN') return sendResponse(res, 403, false, 'Bạn chỉ được phản hồi bình luận của chính mình, hoặc cần quyền admin');
     if (!id) return sendResponse(res, 404, false, 'Không tìm thấy bình luận');
     return sendResponse(res, 201, true, 'Đã gửi phản hồi', { id });
   } catch (error) {

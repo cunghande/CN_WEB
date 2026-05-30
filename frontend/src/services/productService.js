@@ -65,6 +65,10 @@ export const setReplyReactionAPI = async (productId, commentId, replyId, reactio
 };
 
 export const addProductReviewAPI = async (id, reviewData) => {
-  const response = await api.post(`/products/${id}/reviews`, reviewData);
+  const response = await api.post(`/products/${id}/reviews`, reviewData, reviewData instanceof FormData ? {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  } : undefined);
   return response.data;
 };

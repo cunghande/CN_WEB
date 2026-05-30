@@ -50,6 +50,58 @@ class User {
     return true;
   }
 
+  static async setPasswordResetToken(id, tokenHash, expiresAt, otpHash = null) {
+    await db.execute(
+      `UPDATE users
+       SET reset_password_token_hash = ?,
+           reset_password_otp_hash = ?,
+           reset_password_expires_at = ?,
+           reset_password_requested_at = NOW()
+       WHERE id = ?`,
+      [tokenHash, otpHash, expiresAt, id]
+    );
+    return true;
+  }
+
+  static async findByPasswordResetToken(email, tokenHash) {
+    const [rows] = await db.execute(
+      `SELECT *
+       FROM users
+       WHERE email = ?
+         AND reset_password_token_hash = ?
+         AND reset_password_expires_at > NOW()
+       LIMIT 1`,
+      [email, tokenHash]
+    );
+    return rows[0];
+  }
+
+  static async findByPasswordResetOtp(email, otpHash) {
+    const [rows] = await db.execute(
+      `SELECT *
+       FROM users
+       WHERE email = ?
+         AND reset_password_otp_hash = ?
+         AND reset_password_expires_at > NOW()
+       LIMIT 1`,
+      [email, otpHash]
+    );
+    return rows[0];
+  }
+
+  static async clearPasswordResetToken(id) {
+    await db.execute(
+      `UPDATE users
+       SET reset_password_token_hash = NULL,
+           reset_password_otp_hash = NULL,
+           reset_password_expires_at = NULL,
+           reset_password_requested_at = NULL
+       WHERE id = ?`,
+      [id]
+    );
+    return true;
+  }
+
   static async updateAvatar(id, avatarUrl) {
     await db.execute('UPDATE users SET avatar_url = ? WHERE id = ?', [avatarUrl, id]);
     return this.findById(id);

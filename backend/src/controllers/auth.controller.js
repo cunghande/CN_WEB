@@ -2,10 +2,15 @@ import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
 import { generateToken } from '../config/jwt.js';
 import User from '../models/User.model.js';
+import { sendPasswordResetOtpEmail } from '../services/emailService.js';
 import { sendResponse } from '../utils/helpers.js';
 
-const invalidLoginMessage = 'Email hoặc mật khẩu không chính xác';
 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+const passwordResetExpiresMinutes = Number(process.env.PASSWORD_RESET_EXPIRES_MINUTES || 15);
+const invalidLoginMessage = 'Email hoặc mật khẩu không chính xác';
+
+const hashResetToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
+const makeResetOtp = () => crypto.randomInt(100000, 1000000).toString();
 
 const redirectWithError = (res, message) => {
   const url = new URL(frontendUrl);
@@ -22,9 +27,7 @@ const redirectWithSession = (res, user) => {
   return res.redirect(url.toString());
 };
 
-const makeSocialPassword = async () => {
-  return bcrypt.hash(`social:${crypto.randomUUID()}`, 10);
-};
+const makeSocialPassword = () => bcrypt.hash(`social:${crypto.randomUUID()}`, 10);
 
 const exchangeGoogleCode = async (code) => {
   const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5000/api/auth/google/callback';
@@ -49,6 +52,7 @@ const exchangeGoogleCode = async (code) => {
 
   const profile = await profileResponse.json();
   if (!profile.email) throw new Error('Tài khoản Google không trả về email');
+
   return {
     email: profile.email,
     full_name: profile.name || profile.email,
@@ -123,12 +127,10 @@ export const login = async (req, res, next) => {
     const user = await User.findByEmail(email);
     if (!user) return sendResponse(res, 401, false, invalidLoginMessage);
 
-    let isMatch = false;
-    if (user.password?.startsWith('$2a$') || user.password?.startsWith('$2b$')) {
-      isMatch = await bcrypt.compare(password, user.password);
-    } else {
-      isMatch = password === user.password;
-    }
+    const isBcryptPassword = user.password?.startsWith('$2a$') || user.password?.startsWith('$2b$');
+    const isMatch = isBcryptPassword
+      ? await bcrypt.compare(password, user.password)
+      : password === user.password;
 
     if (!isMatch) return sendResponse(res, 401, false, invalidLoginMessage);
 
@@ -136,6 +138,63 @@ export const login = async (req, res, next) => {
     const safeUser = await User.findById(user.id);
 
     return sendResponse(res, 200, true, 'Đăng nhập thành công', { user: safeUser, token });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email) return sendResponse(res, 400, false, 'Vui lòng nhập email');
+
+    const user = await User.findByEmail(email);
+    if (!user) {
+      return sendResponse(res, 404, false, 'Email này chưa được đăng ký tài khoản');
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const otp = makeResetOtp();
+    const expiresAt = new Date(Date.now() + passwordResetExpiresMinutes * 60 * 1000);
+    await User.setPasswordResetToken(user.id, hashResetToken(token), expiresAt, hashResetToken(otp));
+
+    const resetUrl = new URL('/reset-password', frontendUrl);
+    resetUrl.searchParams.set('email', user.email);
+    resetUrl.searchParams.set('token', token);
+
+    const sent = await sendPasswordResetOtpEmail(user.email, otp, resetUrl.toString(), passwordResetExpiresMinutes);
+    if (!sent) {
+      return sendResponse(res, 500, false, 'Không gửi được email OTP. Vui lòng kiểm tra cấu hình SMTP.');
+    }
+
+    return sendResponse(res, 200, true, 'Mã OTP đặt lại mật khẩu đã được gửi về email của bạn.');
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const resetPassword = async (req, res, next) => {
+  try {
+    const { email, token, otp, new_password } = req.body;
+    if (!email || !new_password || (!token && !otp)) {
+      return sendResponse(res, 400, false, 'Vui lòng nhập email, mã xác nhận và mật khẩu mới');
+    }
+    if (new_password.length < 6) {
+      return sendResponse(res, 400, false, 'Mật khẩu mới phải có ít nhất 6 ký tự');
+    }
+
+    const user = token
+      ? await User.findByPasswordResetToken(email, hashResetToken(token))
+      : await User.findByPasswordResetOtp(email, hashResetToken(otp));
+    if (!user) {
+      return sendResponse(res, 400, false, 'Mã xác nhận không hợp lệ hoặc đã hết hạn');
+    }
+
+    const hashedPassword = await bcrypt.hash(new_password, 10);
+    await User.updatePassword(user.id, hashedPassword);
+    await User.clearPasswordResetToken(user.id);
+
+    return sendResponse(res, 200, true, 'Đặt lại mật khẩu thành công. Bạn có thể đăng nhập bằng mật khẩu mới.');
   } catch (error) {
     next(error);
   }
@@ -232,7 +291,6 @@ export const changePassword = async (req, res, next) => {
     const isMatch = user.password?.startsWith('$2')
       ? await bcrypt.compare(current_password, user.password)
       : current_password === user.password;
-
     if (!isMatch) return sendResponse(res, 400, false, 'Mật khẩu hiện tại không đúng');
 
     const hashedPassword = await bcrypt.hash(new_password, 10);

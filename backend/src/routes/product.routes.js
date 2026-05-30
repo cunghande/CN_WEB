@@ -30,6 +30,6 @@ router.post('/:productId/comments/:commentId/reaction', authenticate, setComment
 router.delete('/:productId/comments/:commentId/reaction', authenticate, deleteCommentReaction);
 router.post('/:productId/comments/:commentId/replies', authenticate, addCommentReply);
 router.post('/:productId/comments/:commentId/replies/:replyId/reaction', authenticate, setReplyReaction);
-router.post('/:id/reviews', authenticate, addReview);
+router.post('/:id/reviews', authenticate, upload.single('image'), addReview);
 
 export default router;

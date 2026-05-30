@@ -1,23 +1,40 @@
 import db from '../config/db.js';
+import Coupon from './Coupon.model.js';
 import Notification from './Notification.model.js';
 
 class Order {
   static async create(orderData) {
-    const { user_id, items, subtotal_amount, shipping_fee, total_amount, address, shipping_note } = orderData;
+    const {
+      user_id,
+      items,
+      subtotal_amount,
+      shipping_fee,
+      applied_coupons = [],
+      discount_amount = 0,
+      shipping_discount_amount = 0,
+      total_amount,
+      address,
+      shipping_note
+    } = orderData;
     const connection = await db.getConnection();
 
     try {
       await connection.beginTransaction();
 
+      const couponCodes = applied_coupons.map(ac => ac.coupon?.code).filter(Boolean).join(',');
+
       const [result] = await connection.execute(
         `INSERT INTO orders
-        (user_id, subtotal_amount, shipping_fee, total_amount, status, receiver_name, receiver_phone,
+        (user_id, subtotal_amount, shipping_fee, coupon_code, discount_amount, shipping_discount_amount, total_amount, status, receiver_name, receiver_phone,
          province_code, province_name, district_code, district_name, ward_code, ward_name, hamlet, address_line, shipping_note)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           user_id,
           subtotal_amount,
           shipping_fee,
+          couponCodes || null,
+          discount_amount,
+          shipping_discount_amount,
           total_amount,
           'pending',
           address.receiver_name,
@@ -45,6 +62,19 @@ class Order {
           'UPDATE product_variants SET stock_quantity = GREATEST(0, stock_quantity - ?) WHERE id = ?',
           [item.quantity, item.variant_id]
         );
+      }
+
+      for (const applied of applied_coupons) {
+        if (applied.coupon?.id) {
+          await Coupon.redeem(connection, {
+            couponId: applied.coupon.id,
+            userCouponId: applied.user_coupon_id,
+            userId: user_id,
+            orderId,
+            discountAmount: applied.discount_amount,
+            shippingDiscountAmount: applied.shipping_discount_amount
+          });
+        }
       }
 
       await connection.commit();
@@ -93,7 +123,7 @@ class Order {
     const order = orders[0];
 
     const [items] = await db.execute(`
-      SELECT oi.*, v.size, v.color, p.name as product_name, p.image_url
+      SELECT oi.*, v.size, v.color, p.id as product_id, p.name as product_name, p.image_url
       FROM order_items oi
       JOIN product_variants v ON oi.variant_id = v.id
       JOIN products p ON v.product_id = p.id

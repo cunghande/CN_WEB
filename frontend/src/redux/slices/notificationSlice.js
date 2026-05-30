@@ -12,7 +12,16 @@ const notificationSlice = createSlice({
     items: [],
     loading: false
   },
-  reducers: {},
+  reducers: {
+    markNotificationReadLocal: (state, action) => {
+      state.items = state.items.map((item) => (
+        item.id === action.payload ? { ...item, is_read: true } : item
+      ));
+    },
+    markAllNotificationsReadLocal: (state) => {
+      state.items = state.items.map((item) => ({ ...item, is_read: true }));
+    }
+  },
   extraReducers: (builder) => {
     builder
       .addCase(fetchNotifications.pending, (state) => {
@@ -28,4 +37,5 @@ const notificationSlice = createSlice({
   }
 });
 
+export const { markNotificationReadLocal, markAllNotificationsReadLocal } = notificationSlice.actions;
 export default notificationSlice.reducer;

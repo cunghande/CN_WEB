@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, Package, Plus, ShoppingBag, TrendingUp, Users } from 'lucide-react';
+import { AlertTriangle, Package, Plus, ShoppingBag, TicketPercent, TrendingUp, Users } from 'lucide-react';
 import { getUsersAPI } from '../../services/authService.js';
 import { getAllOrdersAPI } from '../../services/orderService.js';
 import { getProductsAPI } from '../../services/productService.js';
@@ -47,29 +47,33 @@ const Dashboard = () => {
   }, [orders, products]);
 
   const cards = [
-    { label: 'Doanh thu', value: formatPrice(stats.totalRevenue), icon: TrendingUp, tone: 'bg-premium-50 text-premium-800' },
+    { label: 'Doanh thu', value: formatPrice(stats.totalRevenue), icon: TrendingUp, tone: 'bg-emerald-50 text-emerald-800' },
     { label: 'Đơn hàng', value: orders.length, icon: ShoppingBag, tone: 'bg-blue-50 text-blue-700' },
     { label: 'Sản phẩm', value: products.length, icon: Package, tone: 'bg-amber-50 text-amber-700' },
     { label: 'Khách hàng', value: users.length, icon: Users, tone: 'bg-indigo-50 text-indigo-700' }
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 py-10">
+    <div className="min-h-screen bg-[#f6f3ee] py-10">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
-            <p className="text-sm font-bold uppercase text-premium-700">Quản trị cửa hàng</p>
+            <p className="text-sm font-bold uppercase text-emerald-700">Quản trị cửa hàng</p>
             <h1 className="mt-1 text-3xl font-black text-slate-950">Dashboard vận hành</h1>
             <p className="mt-2 text-sm text-slate-500">Theo dõi doanh thu, đơn mới, sản phẩm và tồn kho thấp.</p>
           </div>
-          <div className="flex gap-3">
-            <Link to="/admin/products" className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-800 hover:bg-slate-50">
-              <Plus className="h-4 w-4" />
+          <div className="flex flex-wrap gap-3">
+            <Link to="/admin/products" className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-800 hover:bg-[#f6f3ee]">
+              <Package className="h-4 w-4" />
               Sản phẩm
             </Link>
-            <Link to="/admin/orders" className="inline-flex items-center gap-2 rounded-md bg-premium-700 px-4 py-2 text-sm font-bold text-white hover:bg-premium-800">
+            <Link to="/admin/orders" className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-800 hover:bg-[#f6f3ee]">
               <ShoppingBag className="h-4 w-4" />
               Đơn hàng
+            </Link>
+            <Link to="/admin/coupons" className="inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800">
+              <TicketPercent className="h-4 w-4" />
+              Voucher / Mã KM
             </Link>
           </div>
         </div>
@@ -80,13 +84,13 @@ const Dashboard = () => {
           <div className="space-y-8">
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
               {cards.map((card) => (
-                <div key={card.label} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+                <div key={card.label} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="text-sm font-bold text-slate-500">{card.label}</div>
                       <div className="mt-2 text-2xl font-black text-slate-950">{card.value}</div>
                     </div>
-                    <div className={`grid h-12 w-12 place-items-center rounded-md ${card.tone}`}>
+                    <div className={`grid h-12 w-12 place-items-center rounded-2xl ${card.tone}`}>
                       <card.icon className="h-6 w-6" />
                     </div>
                   </div>
@@ -95,7 +99,7 @@ const Dashboard = () => {
             </div>
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-5">
+              <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5">
                 <div className="flex items-center gap-3">
                   <AlertTriangle className="h-5 w-5 text-amber-700" />
                   <h3 className="font-black text-amber-900">Cần xử lý</h3>
@@ -106,10 +110,10 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              <div className="rounded-lg border border-slate-200 bg-white p-5 lg:col-span-2">
+              <div className="rounded-3xl border border-slate-200 bg-white p-5 lg:col-span-2">
                 <div className="mb-4 flex items-center justify-between">
                   <h3 className="font-black text-slate-950">Đơn hàng mới nhất</h3>
-                  <Link to="/admin/orders" className="text-sm font-bold text-premium-700 hover:text-premium-900">Xem tất cả</Link>
+                  <Link to="/admin/orders" className="text-sm font-bold text-emerald-700 hover:text-emerald-900">Xem tất cả</Link>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
@@ -124,7 +128,7 @@ const Dashboard = () => {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {orders.slice(0, 6).map((order) => {
-                        const meta = statusMeta[order.status] || { label: order.status, tone: 'bg-slate-50 text-slate-700 border-slate-200' };
+                        const meta = statusMeta[order.status] || { label: order.status, tone: 'bg-[#f6f3ee] text-slate-700 border-slate-200' };
                         return (
                           <tr key={order.id}>
                             <td className="py-3 pr-4 font-black text-slate-950">#{order.id}</td>
@@ -132,7 +136,7 @@ const Dashboard = () => {
                               <div className="font-bold text-slate-900">{order.full_name}</div>
                               <div className="text-xs text-slate-500">{order.email}</div>
                             </td>
-                            <td className="py-3 pr-4 font-black text-premium-800">{formatPrice(order.total_amount)}</td>
+                            <td className="py-3 pr-4 font-black text-emerald-800">{formatPrice(order.total_amount)}</td>
                             <td className="py-3 pr-4"><span className={`rounded-full border px-2 py-1 text-xs font-bold ${meta.tone}`}>{meta.label}</span></td>
                             <td className="py-3 text-xs text-slate-500">{new Date(getOrderDate(order)).toLocaleDateString('vi-VN')}</td>
                           </tr>

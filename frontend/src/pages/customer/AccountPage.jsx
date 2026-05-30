@@ -41,10 +41,10 @@ const genderOptions = [
   { value: 'other', label: 'Khác' }
 ];
 
-const inputClass = 'w-full rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-premium-600 focus:ring-2 focus:ring-premium-100 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:ring-premium-900/40';
+const inputClass = 'w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-premium-600 focus:ring-2 focus:ring-premium-100 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:ring-premium-900/40';
 
 const SectionShell = ({ title, description, children, action }) => (
-  <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
     <div className="flex flex-col justify-between gap-3 border-b border-slate-100 px-6 py-5 dark:border-slate-800 sm:flex-row sm:items-center">
       <div>
         <h2 className="text-xl font-black text-slate-950 dark:text-white">{title}</h2>
@@ -197,31 +197,31 @@ const AccountPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 py-10 dark:bg-slate-950">
+    <div className="min-h-screen bg-[#f6f3ee] py-10 dark:bg-slate-950">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <section className="mb-6 overflow-hidden rounded-lg bg-slate-950 text-white shadow-sm">
+        <section className="mb-6 overflow-hidden rounded-3xl bg-slate-950 text-white shadow-sm">
           <div className="relative px-6 py-7 sm:px-8">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(47,167,119,0.35),transparent_34%),linear-gradient(135deg,rgba(15,23,42,1),rgba(30,41,59,1))]" />
             <div className="relative flex flex-col justify-between gap-5 md:flex-row md:items-center">
               <div className="flex items-center gap-4">
                 <img src={getImageUrl(user?.avatar_url, 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80')} alt={user?.full_name} className="h-20 w-20 rounded-full border-4 border-white/20 object-cover" />
                 <div>
-                  <p className="text-sm font-bold uppercase text-premium-200">Tài khoản của tôi</p>
+                  <p className="text-sm font-bold uppercase text-emerald-200">Tài khoản của tôi</p>
                   <h1 className="mt-1 text-3xl font-black">{user?.full_name || 'Khách hàng'}</h1>
                   <p className="mt-1 text-sm text-slate-300">{user?.email}</p>
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="rounded-lg bg-white/10 px-4 py-3 backdrop-blur">
-                  <PackageCheck className="mx-auto h-5 w-5 text-premium-200" />
+                <div className="rounded-3xl bg-white/10 px-4 py-3 backdrop-blur">
+                  <PackageCheck className="mx-auto h-5 w-5 text-emerald-200" />
                   <div className="mt-1 text-xs font-bold text-slate-200">Đơn hàng</div>
                 </div>
-                <div className="rounded-lg bg-white/10 px-4 py-3 backdrop-blur">
-                  <MapPin className="mx-auto h-5 w-5 text-premium-200" />
+                <div className="rounded-3xl bg-white/10 px-4 py-3 backdrop-blur">
+                  <MapPin className="mx-auto h-5 w-5 text-emerald-200" />
                   <div className="mt-1 text-xs font-bold text-slate-200">{addresses.length} địa chỉ</div>
                 </div>
-                <div className="rounded-lg bg-white/10 px-4 py-3 backdrop-blur">
-                  <Bell className="mx-auto h-5 w-5 text-premium-200" />
+                <div className="rounded-3xl bg-white/10 px-4 py-3 backdrop-blur">
+                  <Bell className="mx-auto h-5 w-5 text-emerald-200" />
                   <div className="mt-1 text-xs font-bold text-slate-200">{notifications.filter((item) => !item.is_read).length} mới</div>
                 </div>
               </div>
@@ -230,13 +230,13 @@ const AccountPage = () => {
         </section>
 
         {(message || error) && (
-          <div className={`mb-5 rounded-lg border px-4 py-3 text-sm font-bold ${error ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200' : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200'}`}>
+          <div className={`mb-5 rounded-3xl border px-4 py-3 text-sm font-bold ${error ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200' : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200'}`}>
             {error || message}
           </div>
         )}
 
         <div className="grid gap-6 lg:grid-cols-[290px_1fr]">
-          <aside className="h-max rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <aside className="h-max rounded-3xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <nav className="space-y-1">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
@@ -245,10 +245,10 @@ const AccountPage = () => {
                   <Link
                     key={tab.id}
                     to={tab.path}
-                    className={`flex items-center justify-between rounded-md px-4 py-3 text-sm font-bold transition ${
+                    className={`flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-bold transition ${
                       active
-                        ? 'bg-premium-50 text-premium-800 dark:bg-premium-500/15 dark:text-premium-200'
-                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
+                        ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-200'
+                        : 'text-slate-600 hover:bg-[#f6f3ee] hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
                     }`}
                   >
                     <span className="flex items-center gap-3"><Icon className="h-4 w-4" /> {tab.label}</span>
@@ -262,10 +262,10 @@ const AccountPage = () => {
           <div>
             {activeTab === 'profile' && (
               <SectionShell title="Thông tin cá nhân" description="Thông tin này dùng cho hồ sơ công khai và hỗ trợ chăm sóc khách hàng.">
-                <div className="mb-6 flex flex-col gap-4 rounded-lg bg-slate-50 p-4 dark:bg-slate-950 sm:flex-row sm:items-center">
+                <div className="mb-6 flex flex-col gap-4 rounded-3xl bg-[#f6f3ee] p-4 dark:bg-slate-950 sm:flex-row sm:items-center">
                   <img src={getImageUrl(user?.avatar_url, 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80')} alt={user?.full_name} className="h-24 w-24 rounded-full object-cover" />
                   <div>
-                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-md bg-premium-700 px-4 py-2 text-sm font-bold text-white hover:bg-premium-800">
+                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-2xl bg-slate-950 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800">
                       <Camera className="h-4 w-4" />
                       Đổi avatar
                       <input type="file" accept="image/*" className="hidden" onChange={handleAvatar} />
@@ -324,15 +324,15 @@ const AccountPage = () => {
 
                 <div className="mt-6 space-y-3">
                   {addresses.map((item) => (
-                    <div key={item.id} className="flex items-start justify-between gap-4 rounded-lg border border-slate-200 p-4 dark:border-slate-700">
+                    <div key={item.id} className="flex items-start justify-between gap-4 rounded-3xl border border-slate-200 p-4 dark:border-slate-700">
                       <div className="text-sm text-slate-600 dark:text-slate-300">
                         <div className="font-black text-slate-950 dark:text-white">{item.receiver_name} - {item.receiver_phone}</div>
                         <div>{item.address_line}, {item.hamlet && `${item.hamlet}, `}{item.ward_name}, {item.district_name}, {item.province_name}</div>
                       </div>
-                      <button onClick={() => handleDeleteAddress(item.id)} className="rounded-md p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"><Trash2 className="h-4 w-4" /></button>
+                      <button onClick={() => handleDeleteAddress(item.id)} className="rounded-2xl p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"><Trash2 className="h-4 w-4" /></button>
                     </div>
                   ))}
-                  {addresses.length === 0 && <p className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">Bạn chưa có địa chỉ giao hàng.</p>}
+                  {addresses.length === 0 && <p className="rounded-3xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">Bạn chưa có địa chỉ giao hàng.</p>}
                 </div>
               </SectionShell>
             )}
@@ -352,13 +352,13 @@ const AccountPage = () => {
               <SectionShell title="Thông báo" description="Theo dõi cập nhật đơn hàng và tương tác sản phẩm." action={<Button variant="outline" size="sm" onClick={handleReadAll}>Đánh dấu đã đọc</Button>}>
                 <div className="space-y-3">
                   {notifications.map((item) => (
-                    <button key={item.id} onClick={() => handleNotificationClick(item)} className={`block w-full rounded-lg border p-4 text-left text-sm transition hover:bg-slate-50 dark:hover:bg-slate-800 ${item.is_read ? 'border-slate-200 dark:border-slate-700' : 'border-premium-200 bg-premium-50 dark:bg-premium-900/20'}`}>
+                    <button key={item.id} onClick={() => handleNotificationClick(item)} className={`block w-full rounded-3xl border p-4 text-left text-sm transition hover:bg-[#f6f3ee] dark:hover:bg-slate-800 ${item.is_read ? 'border-slate-200 dark:border-slate-700' : 'border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20'}`}>
                       <div className="flex items-center gap-2 font-black text-slate-950 dark:text-white">
-                        {!item.is_read && <CheckCircle2 className="h-4 w-4 text-premium-700 dark:text-premium-300" />}
+                        {!item.is_read && <CheckCircle2 className="h-4 w-4 text-emerald-700 dark:text-emerald-300" />}
                         {item.title}
                       </div>
                       <div className="mt-1 text-slate-600 dark:text-slate-300">{item.message}</div>
-                      {item.actor_name && <div className="mt-1 text-xs font-bold text-premium-700 dark:text-premium-300">Từ: {item.actor_name}</div>}
+                      {item.actor_name && <div className="mt-1 text-xs font-bold text-emerald-700 dark:text-emerald-300">Từ: {item.actor_name}</div>}
                     </button>
                   ))}
                   {notifications.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400">Chưa có thông báo.</p>}

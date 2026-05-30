@@ -1,12 +1,14 @@
 import express from 'express';
 import {
   changePassword,
+  forgotPassword,
   getMe,
   getPublicProfile,
   handleFacebookCallback,
   handleGoogleCallback,
   login,
   register,
+  resetPassword,
   startFacebookLogin,
   startGoogleLogin,
   updateAvatar,
@@ -20,6 +22,8 @@ const router = express.Router();
 
 router.post('/register', register);
 router.post('/login', login);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
 router.get('/google', startGoogleLogin);
 router.get('/google/callback', handleGoogleCallback);
 router.get('/facebook', startFacebookLogin);
