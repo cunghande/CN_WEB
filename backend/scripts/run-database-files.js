@@ -77,7 +77,15 @@ const runFiles = async (connection, folder, files) => {
     const rawSql = await fs.readFile(filePath, 'utf8');
     const sql = normalizeSql(rawSql);
     console.log(`Đang chạy ${folder}/${file}`);
-    await connection.query(sql);
+    try {
+      await connection.query(sql);
+    } catch (error) {
+      const isRepeatableMigrationError = folder === 'migrations'
+        && ['ER_DUP_FIELDNAME', 'ER_DUP_KEYNAME', 'ER_TABLE_EXISTS_ERROR'].includes(error.code);
+
+      if (!isRepeatableMigrationError) throw error;
+      console.log(`Bỏ qua ${folder}/${file}: ${error.sqlMessage}`);
+    }
   }
 };
 
