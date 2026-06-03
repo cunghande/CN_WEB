@@ -307,6 +307,38 @@ class Product {
     return result.insertId;
   }
 
+  static async updateComment(productId, commentId, userId, content) {
+    const [comments] = await db.execute(
+      'SELECT user_id FROM product_comments WHERE id = ? AND product_id = ?',
+      [commentId, productId]
+    );
+    const comment = comments[0];
+    if (!comment) return null;
+    if (comment.user_id !== userId) return 'FORBIDDEN';
+
+    await db.execute(
+      'UPDATE product_comments SET content = ? WHERE id = ? AND product_id = ? AND user_id = ?',
+      [content, commentId, productId, userId]
+    );
+    return true;
+  }
+
+  static async deleteComment(productId, commentId, userId) {
+    const [comments] = await db.execute(
+      'SELECT user_id FROM product_comments WHERE id = ? AND product_id = ?',
+      [commentId, productId]
+    );
+    const comment = comments[0];
+    if (!comment) return null;
+    if (comment.user_id !== userId) return 'FORBIDDEN';
+
+    await db.execute(
+      'DELETE FROM product_comments WHERE id = ? AND product_id = ? AND user_id = ?',
+      [commentId, productId, userId]
+    );
+    return true;
+  }
+
   static async setCommentReaction(productId, commentId, userId, reaction) {
     const [comments] = await db.execute(
       `SELECT pc.*, u.full_name AS owner_name

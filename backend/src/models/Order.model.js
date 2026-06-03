@@ -151,6 +151,7 @@ class Order {
 
   static async updateStatus(id, status) {
     const order = await this.findById(id);
+    if (!order) return null;
     await db.execute('UPDATE orders SET status = ? WHERE id = ?', [status, id]);
     return order;
   }

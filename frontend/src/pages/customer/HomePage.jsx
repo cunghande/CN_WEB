@@ -12,6 +12,7 @@ import { forgotPasswordAPI, getSocialLoginUrl, loginAPI, registerAPI, resetPassw
 import { formatPrice } from '../../utils/formatPrice.js';
 import { getImageUrl } from '../../utils/imageUrl.js';
 import { getProductStock } from '../../utils/productHelpers.js';
+import { isStrongEnoughPassword, isValidEmail, isValidPersonName, normalizeText } from '../../utils/validation.js';
 
 const fallbackImage = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=900&q=80';
 
@@ -142,8 +143,8 @@ const HomePage = () => {
       }
 
       const res = authTab === 'login'
-        ? await loginAPI({ email, password })
-        : await registerAPI({ full_name: fullName, email, password });
+        ? await loginAPI({ email: email.trim().toLowerCase(), password })
+        : await registerAPI({ full_name: normalizeText(fullName), email: email.trim().toLowerCase(), password });
 
       dispatch(loginSuccess(res.data));
       setAuthModal(false);
@@ -284,3 +285,4 @@ const HomePage = () => {
 };
 
 export default HomePage;
+

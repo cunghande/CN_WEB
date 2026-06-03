@@ -2,15 +2,37 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { Bell, Gift, LogOut, Menu, Moon, Search, ShoppingBag, ShieldCheck, Sun, User, X } from 'lucide-react';
+import ReviewRequestModal from '../product/ReviewRequestModal.jsx';
 import { logout, setTheme } from '../../redux/slices/authSlice.js';
 import { fetchNotifications, markAllNotificationsReadLocal, markNotificationReadLocal } from '../../redux/slices/notificationSlice.js';
 import { markAllNotificationsReadAPI, markNotificationReadAPI } from '../../services/notificationService.js';
+import { addProductCommentAPI, addProductReviewAPI } from '../../services/productService.js';
 import { getImageUrl } from '../../utils/imageUrl.js';
+
+const getReviewProductId = (notification) => {
+  if (notification.type === 'product_review_request' && notification.entity_type === 'product' && notification.entity_id) {
+    return notification.entity_id;
+  }
+
+  const target = notification.target_url || '';
+  const isReviewTarget = notification.type === 'product_review_request'
+    || target.includes('review=1')
+    || target.includes('review-form')
+    || `${notification.title || ''} ${notification.message || ''}`.toLowerCase().includes('đánh giá');
+  if (!isReviewTarget) return null;
+
+  const productMatch = target.match(/\/products\/(\d+)/);
+  if (productMatch) return productMatch[1];
+
+  const productParam = new URLSearchParams(target.split('?')[1] || '').get('productId');
+  return productParam || null;
+};
 
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [reviewRequest, setReviewRequest] = useState(null);
   const { user, theme } = useSelector((state) => state.auth);
   const { items } = useSelector((state) => state.cart);
   const { items: notifications } = useSelector((state) => state.notifications);
@@ -42,12 +64,41 @@ const Navbar = () => {
     navigate('/');
   };
 
+  const getNotificationTarget = (notification) => {
+    const reviewProductId = getReviewProductId(notification);
+    if (reviewProductId) {
+      return `/products/${reviewProductId}#comments`;
+    }
+
+    return notification.target_url;
+  };
+
   const handleNotificationClick = async (notification) => {
     dispatch(markNotificationReadLocal(notification.id));
     await markNotificationReadAPI(notification.id);
     dispatch(fetchNotifications());
     setNotificationOpen(false);
-    if (notification.target_url) navigate(notification.target_url);
+    const reviewProductId = getReviewProductId(notification);
+    if (reviewProductId) {
+      setReviewRequest({ ...notification, entity_id: reviewProductId });
+      return;
+    }
+    const target = getNotificationTarget(notification);
+    if (target) navigate(target);
+  };
+
+  const handleSubmitReviewRequest = async ({ rating, content, image }) => {
+    if (!reviewRequest?.entity_id) return;
+
+    const formData = new FormData();
+    formData.append('rating', String(rating));
+    formData.append('content', content);
+    if (image) formData.append('image', image);
+
+    await addProductReviewAPI(reviewRequest.entity_id, formData);
+    const commentResponse = await addProductCommentAPI(reviewRequest.entity_id, content);
+    const commentId = commentResponse?.data?.id;
+    navigate(`/products/${reviewRequest.entity_id}${commentId ? `#comment-${commentId}` : '#comments'}`);
   };
 
   const handleReadAll = async () => {
@@ -78,6 +129,7 @@ const Navbar = () => {
   };
 
   return (
+    <>
     <header className="sticky top-0 z-40 border-b border-white/60 bg-white/82 backdrop-blur-xl dark:border-slate-800/80 dark:bg-slate-950/88">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-18 items-center justify-between py-3">
@@ -165,6 +217,7 @@ const Navbar = () => {
                         <Link onClick={closeMenus} to="/account/profile" className="block px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">Tài khoản của tôi</Link>
                         <Link onClick={closeMenus} to="/orders" className="block px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">Đơn hàng</Link>
                         {user.role === 'admin' && <Link onClick={closeMenus} to="/admin/dashboard" className="block px-4 py-2.5 text-sm font-bold text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/30">Bảng quản trị</Link>}
+                        {user.role === 'admin' && <Link onClick={closeMenus} to="/admin/users" className="block px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">Quản lý người dùng</Link>}
                         <button onClick={handleLogout} className="block w-full px-4 py-2.5 text-left text-sm font-bold text-rose-600 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/40">Đăng xuất</button>
                       </div>
                     </div>
@@ -193,8 +246,18 @@ const Navbar = () => {
           </div>
         )}
       </div>
+
     </header>
+      <ReviewRequestModal
+        isOpen={Boolean(reviewRequest)}
+        onClose={() => setReviewRequest(null)}
+        onSubmit={handleSubmitReviewRequest}
+      />
+    </>
   );
 };
 
 export default Navbar;
+
+
+

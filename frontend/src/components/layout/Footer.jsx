@@ -47,15 +47,15 @@ const Footer = () => {
           <div>
             <h4 className="mb-4 text-sm font-bold uppercase text-white">Liên hệ</h4>
             <ul className="space-y-3 text-sm text-slate-400">
-              <li className="flex gap-2"><MapPin className="mt-0.5 h-4 w-4 text-premium-400" /> 123 Đường Thời Trang, Quận 1, TP. Hồ Chí Minh</li>
-              <li className="flex gap-2"><Phone className="h-4 w-4 text-premium-400" /> 0123 456 789</li>
+              <li className="flex gap-2"><MapPin className="mt-0.5 h-4 w-4 text-premium-400" /> Thôn Ông Tố -thị trấn Yên Mỹ - Huyện Yên Mỹ- Tỉnh Hưng Yên</li>
+              <li className="flex gap-2"><Phone className="h-4 w-4 text-premium-400" /> 0387378391</li>
               <li className="flex gap-2"><Mail className="h-4 w-4 text-premium-400" /> support@luxurywear.vn</li>
             </ul>
           </div>
         </div>
 
         <div className="mt-10 border-t border-white/10 pt-6 text-xs text-slate-500">
-          © 2026 LUXURYWEAR. Demo quản lý bán quần áo dùng React, Express và MySQL.
+          © 2026 LUXURYWEAR. Liên hệ với chúng tôi.
         </div>
       </div>
     </footer>

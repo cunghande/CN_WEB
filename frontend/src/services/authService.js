@@ -49,6 +49,26 @@ export const getUsersAPI = async () => {
   return response.data;
 };
 
+export const getAdminUserDetailAPI = async (id) => {
+  const response = await api.get(`/auth/users/${id}`);
+  return response.data;
+};
+
+export const updateAdminUserStatusAPI = async (id, status) => {
+  const response = await api.put(`/auth/users/${id}/status`, { status });
+  return response.data;
+};
+
+export const updateAdminUserRoleAPI = async (id, role) => {
+  const response = await api.put(`/auth/users/${id}/role`, { role });
+  return response.data;
+};
+
+export const sendAdminUserResetPasswordAPI = async (id) => {
+  const response = await api.post(`/auth/users/${id}/reset-password`);
+  return response.data;
+};
+
 export const getPublicUserProfileAPI = async (id) => {
   const response = await api.get(`/auth/users/${id}/public`);
   return response.data;

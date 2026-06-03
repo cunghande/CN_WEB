@@ -1,6 +1,6 @@
-# LUXURYWEAR - Website quản lý bán quần áo
+# LuxuryWear - Website thương mại điện tử bán quần áo
 
-LUXURYWEAR là dự án thương mại điện tử bán quần áo dùng React/Vite, Express và MySQL. Hệ thống có đầy đủ các luồng cơ bản của một website bán hàng: xem sản phẩm, chọn biến thể, giỏ hàng, đặt hàng COD, địa chỉ giao hàng, phí ship demo, voucher, thông báo, đánh giá sau mua, bình luận sản phẩm và trang quản trị.
+LuxuryWear là dự án e-commerce thời trang sử dụng React/Vite, Express và MySQL. Hệ thống mô phỏng các nghiệp vụ chính của một website bán hàng hiện đại: xem sản phẩm, biến thể size/màu/ảnh, giỏ hàng, đặt hàng COD, địa chỉ giao hàng, phí ship demo, voucher, thông báo, đánh giá sau mua, bình luận sản phẩm, quản trị đơn hàng, voucher và người dùng.
 
 ## Công nghệ
 
@@ -9,17 +9,16 @@ LUXURYWEAR là dự án thương mại điện tử bán quần áo dùng React/
 - Database: MySQL, schema `shop_quan_ao`.
 - Địa chỉ hành chính: Province Open API.
 - Email: Gmail SMTP bằng App Password.
+- OAuth: Google/Facebook qua backend OAuth redirect.
 
-## Cài đặt
+## Cài đặt local
 
 ```bash
 npm install
 npm run install:all
 ```
 
-## Cấu hình môi trường
-
-Tạo file `backend/.env` theo mẫu `backend/.env.example`.
+Tạo file `backend/.env` theo mẫu sau:
 
 ```env
 PORT=5000
@@ -36,15 +35,20 @@ SMTP_SECURE=false
 SMTP_USER=your-email@gmail.com
 SMTP_PASS=your-google-app-password
 SMTP_FROM="LuxuryWear <your-email@gmail.com>"
+
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+FACEBOOK_APP_ID=your-facebook-app-id
+FACEBOOK_APP_SECRET=your-facebook-app-secret
 ```
 
-Lưu ý: không commit `backend/.env` vì có mật khẩu MySQL, OAuth secret và SMTP App Password.
+Không commit `backend/.env` vì file này chứa mật khẩu MySQL, JWT secret, OAuth secret và SMTP App Password.
 
 ## Database
 
-`database/migrations/` được tách theo từng bảng. Mỗi file tạo một bảng đầy đủ cột ngay từ đầu, không có kiểu tạo bảng thiếu rồi file sau `ALTER TABLE` thêm cột.
+Migration được tách theo từng bảng trong `database/migrations/`. Mỗi file tạo một bảng rõ ràng, dễ đọc và dễ chạy lại từ đầu.
 
-Thứ tự chạy migration:
+Chạy migration:
 
 ```bash
 mysql -u root -p < database/migrations/000_create_database.sql
@@ -67,6 +71,7 @@ mysql -u root -p shop_quan_ao < database/migrations/016_create_product_tag_map.s
 mysql -u root -p shop_quan_ao < database/migrations/017_create_coupons.sql
 mysql -u root -p shop_quan_ao < database/migrations/018_create_coupon_redemptions.sql
 mysql -u root -p shop_quan_ao < database/migrations/019_create_user_coupons.sql
+mysql -u root -p shop_quan_ao < database/migrations/020_add_user_admin_fields.sql
 ```
 
 Chạy dữ liệu demo:
@@ -81,7 +86,7 @@ mysql -u root -p shop_quan_ao < database/seeders/social_demo.sql
 
 ## Chạy dự án
 
-Chạy cả frontend và backend:
+Chạy cả backend và frontend:
 
 ```bash
 npm run dev
@@ -95,42 +100,38 @@ npm run dev:frontend
 ```
 
 - Frontend: `http://localhost:3000`
-- Backend API: `http://localhost:5000`
+- Backend API: `http://localhost:5000/api`
 
-## Tài khoản demo
-
-- Admin: `admin@gmail.com` / `123456`
-- Khách hàng: `a@gmail.com` / `123456`
-
-## Cấu trúc thư mục
+## Cấu trúc dự án
 
 ```text
 backend/
-  server.js                    # Khởi tạo Express, gắn route API, public uploads
-  src/config/                  # Kết nối MySQL, JWT
+  server.js                    # Khởi tạo Express, CORS, static uploads và gắn API routes
+  src/config/                  # Kết nối MySQL, cấu hình JWT
   src/routes/                  # Khai báo endpoint REST
-  src/controllers/             # Validate request và điều phối nghiệp vụ
+  src/controllers/             # Validate request, điều phối nghiệp vụ, trả response
   src/models/                  # Truy vấn MySQL
-  src/services/                # Logic dùng lại: email, shipping
+  src/services/                # Logic dùng lại: email, shipping, OAuth helper
   src/middleware/              # Auth, phân quyền, upload, error handler
-  uploads/                     # Ảnh upload local
+  src/utils/                   # Helper validate, response, format
+  uploads/                     # Ảnh upload local, không commit
 
 frontend/src/
-  routes/                      # Route React và PrivateRoute
-  services/                    # Gọi API bằng axios
+  routes/                      # React Router và PrivateRoute
+  services/                    # Hàm gọi API bằng axios
   redux/                       # State auth, cart, products, notifications
   hooks/                       # Hook dùng lại
   pages/customer/              # Trang khách hàng
   pages/admin/                 # Trang quản trị
   components/                  # Component UI dùng chung
-  utils/                       # Helper format tiền, ảnh, sản phẩm
+  utils/                       # Helper format tiền, ảnh, validate, sản phẩm
 
 database/
-  migrations/                  # Mỗi file tạo một bảng
+  migrations/                  # Schema MySQL
   seeders/                     # Dữ liệu demo
 ```
 
-## Luồng nghiệp vụ chính
+## Luồng xử lý chính
 
 ### Đăng nhập
 
@@ -139,26 +140,12 @@ HomePage.jsx
 -> authService.loginAPI()
 -> POST /api/auth/login
 -> auth.routes.js
--> auth.controller.login
+-> auth.controller.login()
 -> User.model.findByEmail()
 -> bảng users
 ```
 
-Backend kiểm tra email, so sánh mật khẩu bằng bcrypt, tạo JWT và trả về `user + token`. Frontend lưu vào Redux/localStorage và tự gắn token vào các request sau.
-
-### Quên mật khẩu OTP
-
-```text
-HomePage.jsx
--> authService.forgotPasswordAPI()
--> POST /api/auth/forgot-password
--> auth.controller.forgotPassword
--> User.model.setPasswordResetToken()
--> emailService.sendPasswordResetOtpEmail()
--> Gmail SMTP
-```
-
-Chỉ email đã đăng ký tài khoản mới nhận OTP. OTP được hash trong database, không trả về frontend và không in ra console.
+Backend chuẩn hóa email, kiểm tra trạng thái tài khoản, so sánh mật khẩu bằng bcrypt, tạo JWT và trả về `user + token`. Frontend lưu token vào Redux/localStorage và axios tự gắn token vào các request cần đăng nhập.
 
 ### Xem sản phẩm
 
@@ -167,12 +154,12 @@ ProductsPage.jsx
 -> productService.getProductsAPI()
 -> GET /api/products
 -> product.routes.js
--> product.controller.getProducts
+-> product.controller.getProducts()
 -> Product.model.findAll()
 -> products, product_variants, categories
 ```
 
-Frontend có tìm kiếm, lọc danh mục và phân trang sản phẩm.
+Frontend hỗ trợ tìm kiếm, lọc danh mục, tag, trạng thái tồn kho và phân trang sản phẩm.
 
 ### Chi tiết sản phẩm
 
@@ -180,13 +167,14 @@ Frontend có tìm kiếm, lọc danh mục và phân trang sản phẩm.
 ProductDetailPage.jsx
 -> productService.getProductByIdAPI(id)
 -> GET /api/products/:id
--> product.controller.getProductById
+-> product.controller.getProductById()
 -> Product.model.findById()
+-> products, product_variants, comments, reviews, tags
 ```
 
-Trang chi tiết hiển thị thông tin sản phẩm, biến thể, tồn kho, rating, comment, reply và đánh giá sau mua.
+Trang chi tiết cho phép chọn biến thể, đổi ảnh theo biến thể, xem rating/comment, phản hồi bình luận và đánh giá sau khi đã mua hàng thành công.
 
-### Giỏ hàng và đặt hàng
+### Đặt hàng
 
 ```text
 CartPage.jsx
@@ -194,54 +182,57 @@ CartPage.jsx
 -> POST /api/orders
 -> order.routes.js
 -> authenticate
--> order.controller.createOrder
+-> order.controller.createOrder()
 -> shippingService.buildShippingQuote()
 -> Coupon.model.validateMultiple()
 -> Order.model.create()
 -> orders, order_items, product_variants, notifications
 ```
 
-Khi đặt hàng thành công, backend tạo đơn, trừ tồn kho, lưu snapshot địa chỉ, áp voucher, tạo thông báo và gửi email xác nhận.
+Backend kiểm tra địa chỉ, tính phí ship, áp voucher, lưu snapshot người nhận, tạo đơn, trừ tồn kho, tạo thông báo và gửi email xác nhận.
+
+### Đánh giá sau mua
+
+```text
+Navbar.jsx / OrdersPage.jsx
+-> ReviewRequestModal.jsx
+-> productService.addProductReviewAPI()
+-> POST /api/products/:id/reviews
+-> product.controller.addReview()
+-> Product.model.addReview()
+-> product_reviews
+```
+
+Khi admin đổi đơn sang `delivered`, backend tạo thông báo yêu cầu đánh giá cho từng sản phẩm trong đơn. User click thông báo để mở form đánh giá, nhập sao, nội dung và ảnh phản hồi.
 
 ### Voucher
 
 ```text
-VoucherEventPage.jsx / CartPage.jsx
+VoucherEventPage.jsx / CartPage.jsx / ManageCoupons.jsx
 -> couponService
 -> /api/coupons/*
 -> coupon.routes.js
 -> coupon.controller
 -> Coupon.model
+-> coupons, coupon_redemptions, user_coupons
 ```
 
-Voucher hỗ trợ giảm phần trăm, miễn phí ship, giảm phí ship, giới hạn thời gian, giới hạn số lượng và điều kiện nhiệm vụ.
+Voucher hỗ trợ giảm phần trăm đơn hàng, freeship, giảm phí ship, giới hạn thời gian, số lượng, mỗi user và nhiệm vụ săn voucher.
 
-### Thông báo
+### Quản lý người dùng
 
 ```text
-Navbar.jsx / AccountPage.jsx
--> notificationService
--> GET /api/notifications
--> notification.controller
--> Notification.model
--> notifications
+ManageUsers.jsx
+-> authService.getUsersAPI()
+-> GET /api/auth/users
+-> auth.routes.js
+-> authorizeAdmin
+-> user.controller.getUsers()
+-> User.model.findAll()
+-> users, orders
 ```
 
-Thông báo dùng cho trạng thái đơn hàng, bình luận, phản hồi, like/dislike và sự kiện admin cần theo dõi.
-
-### Admin quản lý đơn hàng
-
-```text
-ManageOrders.jsx
--> orderService.updateOrderStatusAPI()
--> PUT /api/orders/:id/status
--> order.controller.updateOrderStatus
--> Order.model.updateStatus()
--> Notification.model.create()
--> emailService.sendOrderStatusEmail()
-```
-
-Admin đổi trạng thái đơn hàng, user nhận thông báo và email.
+Admin xem danh sách user, lọc theo vai trò/trạng thái, xem chi tiết lịch sử mua hàng, địa chỉ, bình luận, khóa/mở khóa tài khoản, cấp/hạ quyền admin và gửi email reset mật khẩu.
 
 ## API chính
 
@@ -257,30 +248,117 @@ Admin đổi trạng thái đơn hàng, user nhận thông báo và email.
 /api/shipping
 ```
 
-## Voucher demo
-
-- `WELCOME10`: giảm 10% cho đơn từ 200.000đ.
-- `SALE20`: giảm 20%, tối đa 120.000đ cho đơn từ 500.000đ.
-- `FREESHIP`: miễn phí vận chuyển cho đơn từ 150.000đ.
-- `SHIP50`: giảm 50% phí vận chuyển.
-- `NEW30`: user mới giảm 30% cho đơn từ 500.000đ.
-- `NEWFREESHIP`: user mới miễn phí vận chuyển.
-- `BUY3SHIP`: mua 3 sản phẩm bất kỳ nhận freeship.
-- `MILLION30`: đơn từ 1.000.000đ giảm 30%.
-- `OVER400K20`: đơn từ 400.000đ giảm 20%.
-- `OVER200K15`: đơn từ 200.000đ giảm 15%.
-- `STYLE25`: combo từ 2 sản phẩm và 700.000đ giảm 25%.
-
 ## Kiểm tra trước commit
 
 ```bash
 npm run build --prefix frontend
+node --check backend/server.js
 ```
 
-Backend có thể kiểm tra cú pháp bằng:
+Có thể kiểm tra toàn bộ file backend:
 
 ```bash
-node --check backend/server.js
+Get-ChildItem backend/src -Recurse -Filter *.js | ForEach-Object { node --check $_.FullName }
+```
+
+## Deploy public
+
+Khuyến nghị tách 3 phần:
+
+1. Database MySQL: dùng Railway, Aiven, PlanetScale hoặc VPS MySQL.
+2. Backend Express: deploy lên Render Web Service.
+3. Frontend Vite: deploy lên Render Static Site, Vercel hoặc Netlify.
+
+### Deploy MySQL
+
+Tạo database MySQL public, lấy các thông tin:
+
+```text
+DB_HOST
+DB_USER
+DB_PASS
+DB_NAME
+DB_PORT
+```
+
+Sau đó chạy migrations và seeders vào database public bằng MySQL client hoặc dashboard của nhà cung cấp.
+
+### Deploy backend lên Render
+
+Tạo Web Service mới từ repository GitHub.
+
+- Root Directory: `backend`
+- Build Command: `npm install`
+- Start Command: `npm start`
+
+Environment variables:
+
+```env
+PORT=10000
+DB_HOST=your-public-mysql-host
+DB_USER=your-public-mysql-user
+DB_PASS=your-public-mysql-password
+DB_NAME=shop_quan_ao
+JWT_SECRET=your-long-random-secret
+FRONTEND_URL=https://your-frontend-domain
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-google-app-password
+SMTP_FROM="LuxuryWear <your-email@gmail.com>"
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+FACEBOOK_APP_ID=your-facebook-app-id
+FACEBOOK_APP_SECRET=your-facebook-app-secret
+```
+
+Sau khi backend có URL public, ví dụ:
+
+```text
+https://luxurywear-api.onrender.com
+```
+
+hãy dùng API base:
+
+```text
+https://luxurywear-api.onrender.com/api
+```
+
+### Deploy frontend
+
+Tạo Static Site từ repository GitHub.
+
+- Root Directory: `frontend`
+- Build Command: `npm install && npm run build`
+- Publish Directory: `dist`
+
+Environment variables:
+
+```env
+VITE_API_URL=https://luxurywear-api.onrender.com/api
+```
+
+Sau khi có domain frontend, quay lại backend Render và sửa:
+
+```env
+FRONTEND_URL=https://your-frontend-domain
+```
+
+### OAuth khi deploy
+
+Trong Google/Facebook Developer Console, thêm callback URL production:
+
+```text
+https://your-backend-domain/api/auth/google/callback
+https://your-backend-domain/api/auth/facebook/callback
+```
+
+Đồng thời giữ callback local nếu vẫn muốn test máy cá nhân:
+
+```text
+http://localhost:5000/api/auth/google/callback
+http://localhost:5000/api/auth/facebook/callback
 ```
 
 ## Tác giả

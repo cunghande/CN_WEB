@@ -4,12 +4,14 @@ import {
   addCommentReply,
   addReview,
   createProduct,
+  deleteComment,
   deleteCommentReaction,
   deleteProduct,
   getProductById,
   getProducts,
   setCommentReaction,
   setReplyReaction,
+  updateComment,
   toggleLike,
   updateProduct
 } from '../controllers/product.controller.js';
@@ -26,6 +28,8 @@ router.delete('/:id', authenticate, authorizeAdmin, deleteProduct);
 router.post('/:id/like', authenticate, toggleLike);
 router.delete('/:id/like', authenticate, toggleLike);
 router.post('/:id/comments', authenticate, addComment);
+router.put('/:productId/comments/:commentId', authenticate, updateComment);
+router.delete('/:productId/comments/:commentId', authenticate, deleteComment);
 router.post('/:productId/comments/:commentId/reaction', authenticate, setCommentReaction);
 router.delete('/:productId/comments/:commentId/reaction', authenticate, deleteCommentReaction);
 router.post('/:productId/comments/:commentId/replies', authenticate, addCommentReply);

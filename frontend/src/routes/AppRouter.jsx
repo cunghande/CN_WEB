@@ -1,11 +1,12 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter, Route, Routes, useLocation, useNavigationType } from 'react-router-dom';
 import Footer from '../components/layout/Footer.jsx';
 import Navbar from '../components/layout/Navbar.jsx';
 import Dashboard from '../pages/admin/Dashboard.jsx';
 import ManageOrders from '../pages/admin/ManageOrders.jsx';
 import ManageProducts from '../pages/admin/ManageProducts.jsx';
 import ManageCoupons from '../pages/admin/ManageCoupons.jsx';
+import ManageUsers from '../pages/admin/ManageUsers.jsx';
 import AccountPage from '../pages/customer/AccountPage.jsx';
 import CartPage from '../pages/customer/CartPage.jsx';
 import HomePage from '../pages/customer/HomePage.jsx';
@@ -18,11 +19,13 @@ import VoucherEventPage from '../pages/customer/VoucherEventPage.jsx';
 import PrivateRoute from './PrivateRoute.jsx';
 
 const ScrollToTop = () => {
-  const { pathname } = useLocation();
+  const { pathname, hash } = useLocation();
+  const navigationType = useNavigationType();
 
   useEffect(() => {
+    if (navigationType === 'POP' || hash) return;
     window.scrollTo(0, 0);
-  }, [pathname]);
+  }, [pathname, hash, navigationType]);
 
   return null;
 };
@@ -52,6 +55,7 @@ const AppRouter = () => (
           <Route path="/admin/products" element={<PrivateRoute requireAdmin><ManageProducts /></PrivateRoute>} />
           <Route path="/admin/orders" element={<PrivateRoute requireAdmin><ManageOrders /></PrivateRoute>} />
           <Route path="/admin/coupons" element={<PrivateRoute requireAdmin><ManageCoupons /></PrivateRoute>} />
+          <Route path="/admin/users" element={<PrivateRoute requireAdmin><ManageUsers /></PrivateRoute>} />
 
           <Route
             path="*"

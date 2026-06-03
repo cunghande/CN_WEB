@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Search, SlidersHorizontal, Star, X } from 'lucide-react';
 import { useDispatch } from 'react-redux';
@@ -25,6 +25,14 @@ const ProductsPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
+    setSearchTerm(searchParams.get('q') || '');
+    setPriceRange(searchParams.get('price') || 'all');
+    setStockFilter(searchParams.get('stock') || 'all');
+    setSortBy(searchParams.get('sort') || 'featured');
+    setCurrentPage(Number(searchParams.get('page') || 1));
+  }, [searchParams]);
+
+  useEffect(() => {
     const category = searchParams.get('category') || '';
     if (category !== String(selectedCategory || '')) {
       dispatch(setSelectedCategory(category ? Number(category) : ''));
@@ -35,9 +43,17 @@ const ProductsPage = () => {
     const nextParams = new URLSearchParams(searchParams);
     if (categoryId) nextParams.set('category', categoryId);
     else nextParams.delete('category');
+    nextParams.set('page', '1');
     setSearchParams(nextParams);
     setMobileFilters(false);
-    setCurrentPage(1);
+  };
+
+  const updateUrlFilter = (key, value, { resetPage = true } = {}) => {
+    const nextParams = new URLSearchParams(searchParams);
+    if (!value || value === 'all' || value === 'featured') nextParams.delete(key);
+    else nextParams.set(key, value);
+    if (resetPage) nextParams.set('page', '1');
+    setSearchParams(nextParams, { replace: true });
   };
 
   const resetFilters = () => {
@@ -46,7 +62,18 @@ const ProductsPage = () => {
     setStockFilter('all');
     setSortBy('featured');
     setCurrentPage(1);
-    handleCategoryChange('');
+    setSearchParams({});
+    dispatch(setSelectedCategory(''));
+    setMobileFilters(false);
+  };
+
+  const goToPage = (page) => {
+    const nextPage = Math.max(1, Math.min(totalPages, page));
+    setCurrentPage(nextPage);
+    const nextParams = new URLSearchParams(searchParams);
+    if (nextPage === 1) nextParams.delete('page');
+    else nextParams.set('page', String(nextPage));
+    setSearchParams(nextParams, { replace: true });
   };
 
   const filteredProducts = useMemo(() => {
@@ -75,10 +102,6 @@ const ProductsPage = () => {
     });
   }, [products, searchTerm, priceRange, stockFilter, sortBy]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, priceRange, stockFilter, sortBy, selectedCategory]);
-
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const paginatedProducts = filteredProducts.slice((safeCurrentPage - 1) * PAGE_SIZE, safeCurrentPage * PAGE_SIZE);
@@ -95,21 +118,21 @@ const ProductsPage = () => {
     <div className="space-y-4">
       <div className="relative">
         <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-        <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Tìm áo khoác, váy, sneaker..." className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm font-semibold text-slate-900 outline-none focus:border-emerald-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
+        <input value={searchTerm} onChange={(event) => { setSearchTerm(event.target.value); updateUrlFilter('q', event.target.value); }} placeholder="Tìm áo khoác, váy, sneaker..." className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm font-semibold text-slate-900 outline-none focus:border-emerald-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
-        <select value={priceRange} onChange={(event) => setPriceRange(event.target.value)} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-emerald-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white">
+        <select value={priceRange} onChange={(event) => { setPriceRange(event.target.value); updateUrlFilter('price', event.target.value); }} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-emerald-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white">
           <option value="all">Tất cả mức giá</option>
           <option value="under300">Dưới 300.000đ</option>
           <option value="300to600">300.000đ - 600.000đ</option>
           <option value="over600">Trên 600.000đ</option>
         </select>
-        <select value={stockFilter} onChange={(event) => setStockFilter(event.target.value)} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-emerald-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white">
+        <select value={stockFilter} onChange={(event) => { setStockFilter(event.target.value); updateUrlFilter('stock', event.target.value); }} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-emerald-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white">
           <option value="all">Tất cả tồn kho</option>
           <option value="in">Còn hàng</option>
           <option value="low">Sắp hết hàng</option>
         </select>
-        <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-emerald-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white">
+        <select value={sortBy} onChange={(event) => { setSortBy(event.target.value); updateUrlFilter('sort', event.target.value); }} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-emerald-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white">
           <option value="featured">Phổ biến</option>
           <option value="rating">Đánh giá cao</option>
           <option value="priceAsc">Giá thấp đến cao</option>
@@ -198,7 +221,7 @@ const ProductsPage = () => {
                 <div className="flex flex-wrap items-center justify-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                    onClick={() => goToPage(safeCurrentPage - 1)}
                     disabled={safeCurrentPage === 1}
                     className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800"
                   >
@@ -208,7 +231,7 @@ const ProductsPage = () => {
                     <button
                       key={page}
                       type="button"
-                      onClick={() => setCurrentPage(page)}
+                      onClick={() => goToPage(page)}
                       className={`grid h-10 min-w-10 place-items-center rounded-full px-3 text-sm font-black transition ${
                         page === safeCurrentPage
                           ? 'bg-slate-950 text-white dark:bg-white dark:text-slate-950'
@@ -220,7 +243,7 @@ const ProductsPage = () => {
                   ))}
                   <button
                     type="button"
-                    onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                    onClick={() => goToPage(safeCurrentPage + 1)}
                     disabled={safeCurrentPage === totalPages}
                     className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800"
                   >

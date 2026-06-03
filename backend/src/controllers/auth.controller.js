@@ -4,6 +4,13 @@ import { generateToken } from '../config/jwt.js';
 import User from '../models/User.model.js';
 import { sendPasswordResetOtpEmail } from '../services/emailService.js';
 import { sendResponse } from '../utils/helpers.js';
+import {
+  isStrongEnoughPassword,
+  isValidEmail,
+  normalizePhone,
+  normalizeText,
+  validateProfilePayload
+} from '../utils/validators.js';
 
 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 const passwordResetExpiresMinutes = Number(process.env.PASSWORD_RESET_EXPIRES_MINUTES || 15);
@@ -101,14 +108,20 @@ export const register = async (req, res, next) => {
       return sendResponse(res, 400, false, 'Vui lòng điền đầy đủ thông tin');
     }
 
-    const existingUser = await User.findByEmail(email);
+    const profileError = validateProfilePayload({ full_name, gender: 'unspecified' });
+    if (profileError) return sendResponse(res, 400, false, profileError);
+    if (!isValidEmail(email)) return sendResponse(res, 400, false, 'Email không đúng định dạng.');
+    if (!isStrongEnoughPassword(password)) return sendResponse(res, 400, false, 'Mật khẩu phải có ít nhất 6 ký tự, gồm cả chữ và số.');
+
+    const cleanEmail = email.trim().toLowerCase();
+    const existingUser = await User.findByEmail(cleanEmail);
     if (existingUser) {
       return sendResponse(res, 400, false, 'Email này đã được đăng ký');
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const userId = await User.create({ full_name, email, password: hashedPassword, role: 'customer' });
-    const token = generateToken({ id: userId, email, role: 'customer' });
+    const userId = await User.create({ full_name: normalizeText(full_name), email: cleanEmail, password: hashedPassword, role: 'customer' });
+    const token = generateToken({ id: userId, email: cleanEmail, role: 'customer' });
     const user = await User.findById(userId);
 
     return sendResponse(res, 201, true, 'Đăng ký tài khoản thành công', { user, token });
@@ -124,8 +137,13 @@ export const login = async (req, res, next) => {
       return sendResponse(res, 400, false, 'Vui lòng nhập email và mật khẩu');
     }
 
-    const user = await User.findByEmail(email);
+    if (!isValidEmail(email)) return sendResponse(res, 400, false, 'Email không đúng định dạng.');
+
+    const user = await User.findByEmail(email.trim().toLowerCase());
     if (!user) return sendResponse(res, 401, false, invalidLoginMessage);
+    if (user.status === 'blocked') {
+      return sendResponse(res, 403, false, 'Tài khoản của bạn đang bị khóa. Vui lòng liên hệ quản trị viên.');
+    }
 
     const isBcryptPassword = user.password?.startsWith('$2a$') || user.password?.startsWith('$2b$');
     const isMatch = isBcryptPassword
@@ -135,6 +153,7 @@ export const login = async (req, res, next) => {
     if (!isMatch) return sendResponse(res, 401, false, invalidLoginMessage);
 
     const token = generateToken({ id: user.id, email: user.email, role: user.role });
+    await User.markLogin(user.id);
     const safeUser = await User.findById(user.id);
 
     return sendResponse(res, 200, true, 'Đăng nhập thành công', { user: safeUser, token });
@@ -148,7 +167,9 @@ export const forgotPassword = async (req, res, next) => {
     const { email } = req.body;
     if (!email) return sendResponse(res, 400, false, 'Vui lòng nhập email');
 
-    const user = await User.findByEmail(email);
+    if (!isValidEmail(email)) return sendResponse(res, 400, false, 'Email không đúng định dạng.');
+
+    const user = await User.findByEmail(email.trim().toLowerCase());
     if (!user) {
       return sendResponse(res, 404, false, 'Email này chưa được đăng ký tài khoản');
     }
@@ -179,13 +200,14 @@ export const resetPassword = async (req, res, next) => {
     if (!email || !new_password || (!token && !otp)) {
       return sendResponse(res, 400, false, 'Vui lòng nhập email, mã xác nhận và mật khẩu mới');
     }
-    if (new_password.length < 6) {
-      return sendResponse(res, 400, false, 'Mật khẩu mới phải có ít nhất 6 ký tự');
+    if (!isValidEmail(email)) return sendResponse(res, 400, false, 'Email không đúng định dạng.');
+    if (!isStrongEnoughPassword(new_password)) {
+      return sendResponse(res, 400, false, 'Mật khẩu mới phải có ít nhất 6 ký tự, gồm cả chữ và số.');
     }
 
     const user = token
-      ? await User.findByPasswordResetToken(email, hashResetToken(token))
-      : await User.findByPasswordResetOtp(email, hashResetToken(otp));
+      ? await User.findByPasswordResetToken(email.trim().toLowerCase(), hashResetToken(token))
+      : await User.findByPasswordResetOtp(email.trim().toLowerCase(), hashResetToken(otp));
     if (!user) {
       return sendResponse(res, 400, false, 'Mã xác nhận không hợp lệ hoặc đã hết hạn');
     }
@@ -273,7 +295,15 @@ export const updateProfile = async (req, res, next) => {
     const { full_name, phone, gender, theme_preference } = req.body;
     if (!full_name) return sendResponse(res, 400, false, 'Vui lòng nhập họ tên');
 
-    const user = await User.updateProfile(req.user.id, { full_name, phone, gender, theme_preference });
+    const profileError = validateProfilePayload({ full_name, phone, gender });
+    if (profileError) return sendResponse(res, 400, false, profileError);
+
+    const user = await User.updateProfile(req.user.id, {
+      full_name: normalizeText(full_name),
+      phone: phone ? normalizePhone(phone) : '',
+      gender,
+      theme_preference
+    });
     return sendResponse(res, 200, true, 'Cập nhật hồ sơ thành công', user);
   } catch (error) {
     next(error);
@@ -283,8 +313,8 @@ export const updateProfile = async (req, res, next) => {
 export const changePassword = async (req, res, next) => {
   try {
     const { current_password, new_password } = req.body;
-    if (!current_password || !new_password || new_password.length < 6) {
-      return sendResponse(res, 400, false, 'Mật khẩu mới phải có ít nhất 6 ký tự');
+    if (!current_password || !new_password || !isStrongEnoughPassword(new_password)) {
+      return sendResponse(res, 400, false, 'Mật khẩu mới phải có ít nhất 6 ký tự, gồm cả chữ và số.');
     }
 
     const user = await User.findByEmail(req.user.email);
@@ -311,3 +341,4 @@ export const updateAvatar = async (req, res, next) => {
     next(error);
   }
 };
+

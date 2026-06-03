@@ -1,17 +1,20 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { Bell, Camera, CheckCircle2, ChevronRight, KeyRound, MapPin, PackageCheck, Save, Trash2, UserRound } from 'lucide-react';
+import { Bell, Camera, CheckCircle2, ChevronRight, KeyRound, MapPin, PackageCheck, Save, Star, Trash2, UserRound } from 'lucide-react';
 import Button from '../../components/common/Button.jsx';
+import Modal from '../../components/common/Modal.jsx';
 import Spinner from '../../components/common/Spinner.jsx';
 import useAuth from '../../hooks/useAuth.js';
 import { createAddressAPI, deleteAddressAPI, getAddressesAPI } from '../../services/addressService.js';
 import { changePasswordAPI, updateAvatarAPI, updateProfileAPI } from '../../services/authService.js';
 import { getDistrictsAPI, getProvincesAPI, getWardsAPI } from '../../services/locationService.js';
 import { markAllNotificationsReadAPI, markNotificationReadAPI } from '../../services/notificationService.js';
+import { addProductCommentAPI, addProductReviewAPI } from '../../services/productService.js';
 import { updateUser } from '../../redux/slices/authSlice.js';
 import { fetchNotifications } from '../../redux/slices/notificationSlice.js';
 import { getImageUrl } from '../../utils/imageUrl.js';
+import { isStrongEnoughPassword, normalizePhone, normalizeText, validateAddress, validateProfile, validateReview } from '../../utils/validation.js';
 
 const emptyAddress = {
   receiver_name: '',
@@ -42,6 +45,41 @@ const genderOptions = [
 ];
 
 const inputClass = 'w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-premium-600 focus:ring-2 focus:ring-premium-100 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:ring-premium-900/40';
+
+const ReviewStarPicker = ({ value, onChange }) => (
+  <div className="flex items-center gap-1">
+    {[1, 2, 3, 4, 5].map((star) => (
+      <button
+        key={star}
+        type="button"
+        onClick={() => onChange(star)}
+        className="rounded-2xl p-1 text-amber-400 transition hover:scale-110 focus:outline-none focus:ring-2 focus:ring-amber-300"
+        aria-label={`Chọn ${star} sao`}
+      >
+        <Star className={`h-8 w-8 ${star <= value ? 'fill-current' : 'fill-transparent'}`} />
+      </button>
+    ))}
+  </div>
+);
+
+const getReviewProductId = (notification) => {
+  if (notification.type === 'product_review_request' && notification.entity_type === 'product' && notification.entity_id) {
+    return notification.entity_id;
+  }
+
+  const target = notification.target_url || '';
+  const isReviewTarget = notification.type === 'product_review_request'
+    || target.includes('review=1')
+    || target.includes('review-form')
+    || `${notification.title || ''} ${notification.message || ''}`.toLowerCase().includes('đánh giá');
+  if (!isReviewTarget) return null;
+
+  const productMatch = target.match(/\/products\/(\d+)/);
+  if (productMatch) return productMatch[1];
+
+  const productParam = new URLSearchParams(target.split('?')[1] || '').get('productId');
+  return productParam || null;
+};
 
 const SectionShell = ({ title, description, children, action }) => (
   <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -78,6 +116,10 @@ const AccountPage = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [reviewRequest, setReviewRequest] = useState(null);
+  const [reviewDraft, setReviewDraft] = useState({ rating: 5, content: '', image: null });
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState('');
 
   const refreshAddresses = async () => {
     const response = await getAddressesAPI();
@@ -108,10 +150,17 @@ const AccountPage = () => {
 
   const handleProfile = async (event) => {
     event.preventDefault();
+    const validationError = validateProfile(profile);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
     setLoading(true);
     try {
       const response = await updateProfileAPI({
         ...profile,
+        full_name: normalizeText(profile.full_name),
+        phone: normalizePhone(profile.phone),
         theme_preference: user?.theme_preference || 'light'
       });
       dispatch(updateUser(response.data));
@@ -137,6 +186,14 @@ const AccountPage = () => {
     event.preventDefault();
     if (passwords.new_password !== passwords.confirm_password) {
       setError('Mật khẩu xác nhận không khớp');
+      return;
+    }
+    if (passwords.current_password === passwords.new_password) {
+      setError('Mật khẩu mới không được trùng mật khẩu hiện tại.');
+      return;
+    }
+    if (!isStrongEnoughPassword(passwords.new_password)) {
+      setError('Mật khẩu mới phải có ít nhất 6 ký tự, gồm cả chữ và số.');
       return;
     }
     await changePasswordAPI({
@@ -172,7 +229,18 @@ const AccountPage = () => {
 
   const handleAddress = async (event) => {
     event.preventDefault();
-    await createAddressAPI(address);
+    const validationError = validateAddress(address);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    await createAddressAPI({
+      ...address,
+      receiver_name: normalizeText(address.receiver_name),
+      receiver_phone: normalizePhone(address.receiver_phone),
+      hamlet: normalizeText(address.hamlet),
+      address_line: normalizeText(address.address_line)
+    });
     setAddress(emptyAddress);
     setDistricts([]);
     setWards([]);
@@ -193,10 +261,49 @@ const AccountPage = () => {
   const handleNotificationClick = async (notification) => {
     await markNotificationReadAPI(notification.id);
     dispatch(fetchNotifications());
+    const reviewProductId = getReviewProductId(notification);
+    if (reviewProductId) {
+      setReviewRequest({ ...notification, entity_id: reviewProductId });
+      setReviewDraft({ rating: 5, content: '', image: null });
+      setReviewError('');
+      return;
+    }
     if (notification.target_url) navigate(notification.target_url);
   };
 
+  const handleSubmitReviewRequest = async (event) => {
+    event.preventDefault();
+    if (!reviewRequest?.entity_id) return;
+
+    const validationError = validateReview(reviewDraft);
+    if (validationError) {
+      setReviewError(validationError);
+      return;
+    }
+    const content = normalizeText(reviewDraft.content);
+
+    const formData = new FormData();
+    formData.append('rating', String(reviewDraft.rating));
+    formData.append('content', content);
+    if (reviewDraft.image) formData.append('image', reviewDraft.image);
+
+    setReviewSubmitting(true);
+    setReviewError('');
+    try {
+      await addProductReviewAPI(reviewRequest.entity_id, formData);
+      const commentResponse = await addProductCommentAPI(reviewRequest.entity_id, content);
+      const commentId = commentResponse?.data?.id;
+      setReviewRequest(null);
+      navigate(`/products/${reviewRequest.entity_id}${commentId ? `#comment-${commentId}` : '#comments'}`);
+    } catch (err) {
+      setReviewError(err.response?.data?.message || 'Không thể gửi đánh giá. Vui lòng thử lại.');
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
+
   return (
+    <>
     <div className="min-h-screen bg-[#f6f3ee] py-10 dark:bg-slate-950">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <section className="mb-6 overflow-hidden rounded-3xl bg-slate-950 text-white shadow-sm">
@@ -281,7 +388,14 @@ const AccountPage = () => {
                   </label>
                   <label className="block">
                     <span className="mb-1.5 block text-xs font-black uppercase text-slate-500 dark:text-slate-400">Số điện thoại</span>
-                    <input value={profile.phone || ''} onChange={(event) => setProfile((current) => ({ ...current, phone: event.target.value }))} className={inputClass} />
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      maxLength={10}
+                      value={profile.phone || ''}
+                      onChange={(event) => setProfile((current) => ({ ...current, phone: normalizePhone(event.target.value).slice(0, 10) }))}
+                      className={inputClass}
+                    />
                   </label>
                   <label className="block">
                     <span className="mb-1.5 block text-xs font-black uppercase text-slate-500 dark:text-slate-400">Giới tính</span>
@@ -304,7 +418,16 @@ const AccountPage = () => {
               <SectionShell title="Địa chỉ giao hàng" description="Địa chỉ đầy đủ giúp checkout tính phí ship và giao hàng chính xác.">
                 <form onSubmit={handleAddress} className="grid gap-3 md:grid-cols-2">
                   <input value={address.receiver_name} onChange={(event) => setAddress({ ...address, receiver_name: event.target.value })} required placeholder="Người nhận" className={inputClass} />
-                  <input value={address.receiver_phone} onChange={(event) => setAddress({ ...address, receiver_phone: event.target.value })} required placeholder="Số điện thoại" className={inputClass} />
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
+                    value={address.receiver_phone}
+                    onChange={(event) => setAddress({ ...address, receiver_phone: normalizePhone(event.target.value).slice(0, 10) })}
+                    required
+                    placeholder="Số điện thoại"
+                    className={inputClass}
+                  />
                   <select value={address.province_code} onChange={handleProvince} required className={inputClass}>
                     <option value="">Chọn tỉnh/thành</option>
                     {provinces.map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}
@@ -369,7 +492,56 @@ const AccountPage = () => {
         </div>
       </div>
     </div>
+    <Modal
+      isOpen={Boolean(reviewRequest)}
+      onClose={() => setReviewRequest(null)}
+      title="Đánh giá sản phẩm"
+      maxWidth="max-w-xl"
+    >
+      <form onSubmit={handleSubmitReviewRequest} className="space-y-5">
+        <div>
+          <div className="text-sm font-black text-slate-700 dark:text-slate-200">Chất lượng sản phẩm</div>
+          <div className="mt-2">
+            <ReviewStarPicker
+              value={reviewDraft.rating}
+              onChange={(rating) => setReviewDraft((draft) => ({ ...draft, rating }))}
+            />
+          </div>
+        </div>
+
+        <textarea
+          value={reviewDraft.content}
+          onChange={(event) => setReviewDraft((draft) => ({ ...draft, content: event.target.value }))}
+          placeholder="Chia sẻ cảm nhận về chất vải, form dáng, màu sắc hoặc trải nghiệm sử dụng..."
+          className="min-h-32 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+        />
+
+        <label className="flex cursor-pointer items-center gap-3 rounded-3xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-sm font-bold text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300 dark:hover:bg-slate-800">
+          <Camera className="h-5 w-5" />
+          <span className="min-w-0 flex-1 truncate">{reviewDraft.image?.name || 'Upload ảnh phản ánh nếu có'}</span>
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(event) => setReviewDraft((draft) => ({ ...draft, image: event.target.files?.[0] || null }))}
+          />
+        </label>
+
+        {reviewError && (
+          <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
+            {reviewError}
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={() => setReviewRequest(null)}>Để sau</Button>
+          <Button type="submit" disabled={reviewSubmitting}>{reviewSubmitting ? 'Đang gửi...' : 'Gửi đánh giá'}</Button>
+        </div>
+      </form>
+    </Modal>
+    </>
   );
 };
 
 export default AccountPage;
+

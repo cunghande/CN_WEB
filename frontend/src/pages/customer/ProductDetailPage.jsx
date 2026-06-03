@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
-  Camera,
   Heart,
   MessageCircle,
   MessageSquareReply,
@@ -10,8 +9,7 @@ import {
   Star,
   ThumbsDown,
   ThumbsUp,
-  UserRound,
-  X
+  UserRound
 } from 'lucide-react';
 import Button from '../../components/common/Button.jsx';
 import Spinner from '../../components/common/Spinner.jsx';
@@ -20,11 +18,12 @@ import useCart from '../../hooks/useCart.js';
 import {
   addCommentReplyAPI,
   addProductCommentAPI,
-  addProductReviewAPI,
+  deleteProductCommentAPI,
   getProductByIdAPI,
   setCommentReactionAPI,
   setReplyReactionAPI,
-  toggleProductLikeAPI
+  toggleProductLikeAPI,
+  updateProductCommentAPI
 } from '../../services/productService.js';
 import { formatPrice } from '../../utils/formatPrice.js';
 import { getImageUrl } from '../../utils/imageUrl.js';
@@ -40,27 +39,6 @@ const RatingStars = ({ value, size = 'h-5 w-5' }) => (
   </div>
 );
 
-const StarPicker = ({ value, hoverValue, onHover, onLeave, onChange }) => {
-  const activeValue = hoverValue || value;
-
-  return (
-    <div className="flex items-center gap-1" onMouseLeave={onLeave}>
-      {[1, 2, 3, 4, 5].map((star) => (
-        <button
-          key={star}
-          type="button"
-          onMouseEnter={() => onHover(star)}
-          onClick={() => onChange(star)}
-          className="rounded-2xl p-1 text-amber-400 transition hover:scale-110 focus:outline-none focus:ring-2 focus:ring-amber-300"
-          aria-label={`Chọn ${star} sao`}
-        >
-          <Star className={`h-8 w-8 ${star <= activeValue ? 'fill-current' : 'fill-transparent'}`} />
-        </button>
-      ))}
-    </div>
-  );
-};
-
 const UserAvatarLink = ({ user }) => (
   <Link to={`/users/${user.user_id}`} className="grid h-9 w-9 flex-shrink-0 place-items-center overflow-hidden rounded-full bg-slate-200 text-xs font-black text-slate-700 transition hover:ring-2 hover:ring-premium-500 dark:bg-slate-800 dark:text-slate-200">
     {user.avatar_url ? (
@@ -73,7 +51,7 @@ const UserAvatarLink = ({ user }) => (
 
 const ProductDetailPage = () => {
   const { id } = useParams();
-  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const { addToCart } = useCart();
   const [product, setProduct] = useState(null);
@@ -81,15 +59,11 @@ const ProductDetailPage = () => {
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [comment, setComment] = useState('');
-  const [review, setReview] = useState({ rating: 5, content: '' });
-  const [reviewImage, setReviewImage] = useState(null);
-  const [ratingHover, setRatingHover] = useState(0);
   const [replyingTo, setReplyingTo] = useState(null);
   const [replyContent, setReplyContent] = useState('');
+  const [editingComment, setEditingComment] = useState(null);
+  const [editingContent, setEditingContent] = useState('');
   const [message, setMessage] = useState('');
-  const [submittingReview, setSubmittingReview] = useState(false);
-
-  const showReviewComposer = searchParams.get('review') === '1';
 
   const loadProduct = async ({ silent = false, keepVariantId = null } = {}) => {
     if (!silent) setLoading(true);
@@ -187,31 +161,26 @@ const ProductDetailPage = () => {
     await refreshWithoutJump();
   };
 
-  const handleReview = async (event) => {
+  const startEditComment = (item) => {
+    setEditingComment(item.id);
+    setEditingContent(item.content || '');
+  };
+
+  const handleUpdateComment = async (event, commentId) => {
     event.preventDefault();
-    if (requireAuth('Vui lòng đăng nhập để đánh giá.')) return;
-    if (!product.can_review) {
-      setMessage('Bạn cần có đơn hàng đã giao thành công với sản phẩm này trước khi đánh giá.');
-      return;
-    }
+    if (!editingContent.trim()) return;
+    await updateProductCommentAPI(id, commentId, editingContent.trim());
+    setEditingComment(null);
+    setEditingContent('');
+    setMessage('Đã cập nhật bình luận.');
+    await refreshWithoutJump();
+  };
 
-    const cleanContent = review.content.trim();
-    const formData = new FormData();
-    formData.append('rating', String(review.rating));
-    formData.append('content', cleanContent);
-    if (reviewImage) formData.append('image', reviewImage);
-
-    setSubmittingReview(true);
-    try {
-      await addProductReviewAPI(id, formData);
-      if (cleanContent) await addProductCommentAPI(id, cleanContent);
-      setReview({ rating: 5, content: '' });
-      setReviewImage(null);
-      setMessage('Đã gửi đánh giá và bình luận của bạn.');
-      await refreshWithoutJump();
-    } finally {
-      setSubmittingReview(false);
-    }
+  const handleDeleteComment = async (commentId) => {
+    if (!window.confirm('Xóa bình luận này?')) return;
+    await deleteProductCommentAPI(id, commentId);
+    setMessage('Đã xóa bình luận.');
+    await refreshWithoutJump();
   };
 
   if (loading) return <div className="py-24"><Spinner size="lg" /></div>;
@@ -220,7 +189,7 @@ const ProductDetailPage = () => {
   return (
     <div className="min-h-screen bg-[#f6f3ee] py-10 text-slate-950 dark:bg-slate-950 dark:text-white">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <Link to="/products" className="text-sm font-bold text-emerald-700 dark:text-emerald-300">← Quay lại sản phẩm</Link>
+        <button type="button" onClick={() => navigate(-1)} className="text-sm font-bold text-emerald-700 dark:text-emerald-300">← Quay lại sản phẩm</button>
         {message && <div className="mt-4 rounded-3xl bg-emerald-50 p-3 text-sm font-bold text-emerald-800 dark:bg-emerald-900/35 dark:text-premium-200">{message}</div>}
 
         <div className="mt-6 grid gap-8 lg:grid-cols-2">
@@ -284,59 +253,8 @@ const ProductDetailPage = () => {
           </section>
         </div>
 
-        {showReviewComposer && (
-          <section id="review-form" className="mt-8 rounded-3xl border border-emerald-200 bg-white p-6 shadow-sm dark:border-emerald-900 dark:bg-slate-900">
-            <h2 className="text-xl font-black text-slate-950 dark:text-white">Đánh giá sau mua hàng</h2>
-            {!product.can_review ? (
-              <div className="mt-4 rounded-3xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-                Chỉ khách có đơn hàng đã giao thành công với sản phẩm này mới gửi được đánh giá.
-              </div>
-            ) : (
-              <form onSubmit={handleReview} className="mt-4 grid gap-5 lg:grid-cols-[1fr_260px]">
-                <div className="space-y-4">
-                  <div>
-                    <StarPicker
-                      value={review.rating}
-                      hoverValue={ratingHover}
-                      onHover={setRatingHover}
-                      onLeave={() => setRatingHover(0)}
-                      onChange={(rating) => setReview({ ...review, rating })}
-                    />
-                    <div className="mt-1 text-sm font-bold text-slate-500 dark:text-slate-400">Bạn đang chọn {ratingHover || review.rating} sao</div>
-                  </div>
-                  <textarea
-                    value={review.content}
-                    onChange={(event) => setReview({ ...review, content: event.target.value })}
-                    placeholder="Chia sẻ trải nghiệm, chất vải, form dáng hoặc phản ánh vấn đề nếu có..."
-                    className="min-h-32 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-                  />
-                  <Button type="submit" disabled={submittingReview}>
-                    {submittingReview ? <Spinner size="sm" /> : 'Gửi đánh giá'}
-                  </Button>
-                </div>
-
-                <div className="rounded-3xl border border-dashed border-slate-300 p-4 dark:border-slate-700">
-                  <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl bg-[#f6f3ee] px-4 py-6 text-center text-sm font-bold text-slate-600 transition hover:bg-slate-100 dark:bg-slate-950 dark:text-slate-300 dark:hover:bg-slate-800">
-                    <Camera className="mb-2 h-6 w-6" />
-                    Upload ảnh phản ánh
-                    <input type="file" accept="image/*" className="hidden" onChange={(event) => setReviewImage(event.target.files?.[0] || null)} />
-                  </label>
-                  {reviewImage && (
-                    <div className="mt-3 flex items-center justify-between rounded-2xl bg-[#f6f3ee] px-3 py-2 text-xs font-bold text-slate-600 dark:bg-slate-950 dark:text-slate-300">
-                      <span className="line-clamp-1">{reviewImage.name}</span>
-                      <button type="button" onClick={() => setReviewImage(null)} className="text-slate-400 hover:text-red-500">
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </form>
-            )}
-          </section>
-        )}
-
         <div className="mt-8">
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <section id="comments" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <h2 className="flex items-center gap-2 text-xl font-black text-slate-950 dark:text-white"><MessageCircle className="h-5 w-5" /> Bình luận</h2>
             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
               Chỉ khách đã mua và nhận hàng mới được bình luận. Admin sẽ phản hồi trực tiếp dưới từng bình luận.
@@ -370,10 +288,23 @@ const ProductDetailPage = () => {
                       {item.user_rating && (
                         <div className="mt-1 flex items-center gap-2">
                           <RatingStars value={item.user_rating} size="h-4 w-4" />
-                          <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Đã mua hàng - {item.user_rating} sao</span>
                         </div>
                       )}
-                      <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">{item.content}</p>
+                      {editingComment === item.id ? (
+                        <form onSubmit={(event) => handleUpdateComment(event, item.id)} className="mt-3 space-y-2">
+                          <textarea
+                            value={editingContent}
+                            onChange={(event) => setEditingContent(event.target.value)}
+                            className="min-h-24 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                          />
+                          <div className="flex flex-wrap gap-2">
+                            <Button type="submit" size="sm">Lưu bình luận</Button>
+                            <Button type="button" variant="outline" size="sm" onClick={() => setEditingComment(null)}>Hủy</Button>
+                          </div>
+                        </form>
+                      ) : (
+                        <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">{item.content}</p>
+                      )}
                       {item.review_image_url && (
                         <img src={getImageUrl(item.review_image_url)} alt="Ảnh phản ánh" className="mt-3 h-28 w-28 rounded-3xl object-cover object-top" />
                       )}
@@ -388,6 +319,16 @@ const ProductDetailPage = () => {
                           <button onClick={() => setReplyingTo(replyingTo === item.id ? null : item.id)} className="inline-flex items-center gap-1 rounded-2xl px-2 py-1 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">
                             <MessageSquareReply className="h-4 w-4" /> Phản hồi
                           </button>
+                        )}
+                        {item.user_id === user?.id && (
+                          <>
+                            <button onClick={() => startEditComment(item)} className="inline-flex items-center gap-1 rounded-2xl px-2 py-1 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">
+                              Sửa
+                            </button>
+                            <button onClick={() => handleDeleteComment(item.id)} className="inline-flex items-center gap-1 rounded-2xl px-2 py-1 text-rose-600 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/30">
+                              Xóa
+                            </button>
+                          </>
                         )}
                       </div>
 
