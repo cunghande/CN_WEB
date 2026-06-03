@@ -261,105 +261,17 @@ Có thể kiểm tra toàn bộ file backend:
 Get-ChildItem backend/src -Recurse -Filter *.js | ForEach-Object { node --check $_.FullName }
 ```
 
-## Deploy public
+## Ghi chú public website
 
-Khuyến nghị tách 3 phần:
+Khi đưa website lên public cần chuẩn bị:
 
-1. Database MySQL: dùng Railway, Aiven, PlanetScale hoặc VPS MySQL.
-2. Backend Express: deploy lên Render Web Service.
-3. Frontend Vite: deploy lên Render Static Site, Vercel hoặc Netlify.
+- Một MySQL database online.
+- Một nơi chạy backend Node.js.
+- Một nơi chạy frontend Vite.
+- Biến môi trường production cho database, JWT, SMTP, OAuth và `VITE_API_URL`.
+- OAuth callback production cho Google/Facebook.
 
-### Deploy MySQL
-
-Tạo database MySQL public, lấy các thông tin:
-
-```text
-DB_HOST
-DB_USER
-DB_PASS
-DB_NAME
-DB_PORT
-```
-
-Sau đó chạy migrations và seeders vào database public bằng MySQL client hoặc dashboard của nhà cung cấp.
-
-### Deploy backend lên Render
-
-Tạo Web Service mới từ repository GitHub.
-
-- Root Directory: `backend`
-- Build Command: `npm install`
-- Start Command: `npm start`
-
-Environment variables:
-
-```env
-PORT=10000
-DB_HOST=your-public-mysql-host
-DB_USER=your-public-mysql-user
-DB_PASS=your-public-mysql-password
-DB_NAME=shop_quan_ao
-JWT_SECRET=your-long-random-secret
-FRONTEND_URL=https://your-frontend-domain
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_SECURE=false
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-google-app-password
-SMTP_FROM="LuxuryWear <your-email@gmail.com>"
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-FACEBOOK_APP_ID=your-facebook-app-id
-FACEBOOK_APP_SECRET=your-facebook-app-secret
-```
-
-Sau khi backend có URL public, ví dụ:
-
-```text
-https://luxurywear-api.onrender.com
-```
-
-hãy dùng API base:
-
-```text
-https://luxurywear-api.onrender.com/api
-```
-
-### Deploy frontend
-
-Tạo Static Site từ repository GitHub.
-
-- Root Directory: `frontend`
-- Build Command: `npm install && npm run build`
-- Publish Directory: `dist`
-
-Environment variables:
-
-```env
-VITE_API_URL=https://luxurywear-api.onrender.com/api
-```
-
-Sau khi có domain frontend, quay lại backend Render và sửa:
-
-```env
-FRONTEND_URL=https://your-frontend-domain
-```
-
-### OAuth khi deploy
-
-Trong Google/Facebook Developer Console, thêm callback URL production:
-
-```text
-https://your-backend-domain/api/auth/google/callback
-https://your-backend-domain/api/auth/facebook/callback
-```
-
-Đồng thời giữ callback local nếu vẫn muốn test máy cá nhân:
-
-```text
-http://localhost:5000/api/auth/google/callback
-http://localhost:5000/api/auth/facebook/callback
-```
+Không commit thông tin thật như mật khẩu database, SMTP App Password, Google Client Secret hoặc Facebook App Secret.
 
 ## Tác giả
 
