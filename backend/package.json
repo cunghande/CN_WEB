@@ -6,7 +6,10 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "db:migrate": "node scripts/run-database-files.js migrate",
+    "db:seed": "node scripts/run-database-files.js seed",
+    "db:setup": "node scripts/run-database-files.js all"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

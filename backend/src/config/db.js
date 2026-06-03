@@ -9,15 +9,27 @@ const __dirname = path.dirname(__filename);
 // Luôn đọc backend/.env dù lệnh được chạy từ thư mục gốc hay từ backend.
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
-const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASS || '',
-  database: process.env.DB_NAME || 'shop_quan_ao',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-});
+const connectionUrl = process.env.MYSQL_PUBLIC_URL || process.env.MYSQL_URL || process.env.DATABASE_URL;
+
+const poolConfig = connectionUrl
+  ? {
+      uri: connectionUrl,
+      waitForConnections: true,
+      connectionLimit: 10,
+      queueLimit: 0
+    }
+  : {
+      host: process.env.DB_HOST || 'localhost',
+      port: Number(process.env.DB_PORT || 3306),
+      user: process.env.DB_USER || 'root',
+      password: process.env.DB_PASS || '',
+      database: process.env.DB_NAME || 'shop_quan_ao',
+      waitForConnections: true,
+      connectionLimit: 10,
+      queueLimit: 0
+    };
+
+const pool = mysql.createPool(poolConfig);
 
 try {
   const connection = await pool.getConnection();
