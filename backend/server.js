@@ -52,7 +52,21 @@ app.get('/api/health', async (req, res, next) => {
     const [rows] = await db.execute('SELECT DATABASE() AS database_name, COUNT(*) AS product_count FROM products');
     res.json({ success: true, data: rows[0] });
   } catch (error) {
-    next(error);
+    res.status(500).json({
+      success: false,
+      message: 'Không kết nối hoặc truy vấn được MySQL',
+      debug: {
+        code: error.code,
+        sqlMessage: error.sqlMessage,
+        errorMessage: error.message,
+        hasMysqlPublicUrl: Boolean(process.env.MYSQL_PUBLIC_URL),
+        hasMysqlUrl: Boolean(process.env.MYSQL_URL),
+        hasDatabaseUrl: Boolean(process.env.DATABASE_URL),
+        dbHost: process.env.DB_HOST || process.env.MYSQLHOST || null,
+        dbName: process.env.DB_NAME || process.env.MYSQLDATABASE || null,
+        dbPort: process.env.DB_PORT || process.env.MYSQLPORT || null
+      }
+    });
   }
 });
 
