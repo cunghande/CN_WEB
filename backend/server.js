@@ -13,6 +13,7 @@ import orderRoutes from './src/routes/order.routes.js';
 import productRoutes from './src/routes/product.routes.js';
 import shippingRoutes from './src/routes/shipping.routes.js';
 import { errorHandler } from './src/middleware/errorHandler.js';
+import db from './src/config/db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -44,6 +45,15 @@ app.get('/', (req, res) => {
     success: true,
     message: 'Clothing Store Backend REST API đang hoạt động bình thường'
   });
+});
+
+app.get('/api/health', async (req, res, next) => {
+  try {
+    const [rows] = await db.execute('SELECT DATABASE() AS database_name, COUNT(*) AS product_count FROM products');
+    res.json({ success: true, data: rows[0] });
+  } catch (error) {
+    next(error);
+  }
 });
 
 // Middleware xử lý lỗi đặt cuối cùng sau toàn bộ route.
