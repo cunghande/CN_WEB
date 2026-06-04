@@ -8,10 +8,10 @@ import {
   ShoppingBag,
   Star,
   ThumbsDown,
-  ThumbsUp,
-  UserRound
+  ThumbsUp
 } from 'lucide-react';
 import Button from '../../components/common/Button.jsx';
+import Avatar from '../../components/common/Avatar.jsx';
 import Spinner from '../../components/common/Spinner.jsx';
 import useAuth from '../../hooks/useAuth.js';
 import useCart from '../../hooks/useCart.js';
@@ -40,12 +40,8 @@ const RatingStars = ({ value, size = 'h-5 w-5' }) => (
 );
 
 const UserAvatarLink = ({ user }) => (
-  <Link to={`/users/${user.user_id}`} className="grid h-9 w-9 flex-shrink-0 place-items-center overflow-hidden rounded-full bg-slate-200 text-xs font-black text-slate-700 transition hover:ring-2 hover:ring-premium-500 dark:bg-slate-800 dark:text-slate-200">
-    {user.avatar_url ? (
-      <img src={getImageUrl(user.avatar_url)} alt={user.full_name} className="h-full w-full object-cover" />
-    ) : (
-      <UserRound className="h-4 w-4" />
-    )}
+  <Link to={`/users/${user.user_id}`} className="transition hover:ring-2 hover:ring-premium-500 rounded-full">
+    <Avatar src={user.avatar_url} name={user.full_name} size="sm" className="h-9 w-9" />
   </Link>
 );
 

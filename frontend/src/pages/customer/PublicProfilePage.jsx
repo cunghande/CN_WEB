@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { CalendarDays, ShieldCheck, UserRound } from 'lucide-react';
+import { CalendarDays, ShieldCheck } from 'lucide-react';
 import { useParams } from 'react-router-dom';
+import Avatar from '../../components/common/Avatar.jsx';
 import Spinner from '../../components/common/Spinner.jsx';
 import { getPublicUserProfileAPI } from '../../services/authService.js';
-import { getImageUrl } from '../../utils/imageUrl.js';
 
 const genderLabel = {
   male: 'Nam',
@@ -37,13 +37,7 @@ const PublicProfilePage = () => {
           <div className="h-32 bg-gradient-to-r from-premium-700 via-slate-900 to-rose-700" />
           <div className="px-6 pb-8">
             <div className="-mt-12 flex flex-col gap-4 sm:flex-row sm:items-end">
-              {profile.avatar_url ? (
-                <img src={getImageUrl(profile.avatar_url)} alt={profile.full_name} className="h-28 w-28 rounded-full border-4 border-white object-cover dark:border-slate-900" />
-              ) : (
-                <div className="grid h-28 w-28 place-items-center rounded-full border-4 border-white bg-slate-100 text-slate-500 dark:border-slate-900 dark:bg-slate-800 dark:text-slate-300">
-                  <UserRound className="h-11 w-11" />
-                </div>
-              )}
+              <Avatar src={profile.avatar_url} name={profile.full_name} size="xl" className="h-28 w-28 border-4 border-white dark:border-slate-900" />
               <div className="pb-2">
                 <h1 className="text-3xl font-black text-slate-950 dark:text-white">{profile.full_name}</h1>
                 <p className="mt-1 flex items-center gap-2 text-sm font-bold text-emerald-700 dark:text-emerald-300">

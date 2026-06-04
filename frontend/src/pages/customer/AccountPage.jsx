@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { Bell, Camera, CheckCircle2, ChevronRight, KeyRound, MapPin, PackageCheck, Save, Star, Trash2, UserRound } from 'lucide-react';
 import Button from '../../components/common/Button.jsx';
+import Avatar from '../../components/common/Avatar.jsx';
 import Modal from '../../components/common/Modal.jsx';
 import Spinner from '../../components/common/Spinner.jsx';
 import useAuth from '../../hooks/useAuth.js';
@@ -13,7 +14,6 @@ import { markAllNotificationsReadAPI, markNotificationReadAPI } from '../../serv
 import { addProductCommentAPI, addProductReviewAPI } from '../../services/productService.js';
 import { updateUser } from '../../redux/slices/authSlice.js';
 import { fetchNotifications } from '../../redux/slices/notificationSlice.js';
-import { getImageUrl } from '../../utils/imageUrl.js';
 import { isStrongEnoughPassword, normalizePhone, normalizeText, validateAddress, validateProfile, validateReview } from '../../utils/validation.js';
 
 const emptyAddress = {
@@ -311,7 +311,7 @@ const AccountPage = () => {
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(47,167,119,0.35),transparent_34%),linear-gradient(135deg,rgba(15,23,42,1),rgba(30,41,59,1))]" />
             <div className="relative flex flex-col justify-between gap-5 md:flex-row md:items-center">
               <div className="flex items-center gap-4">
-                <img src={getImageUrl(user?.avatar_url, 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80')} alt={user?.full_name} className="h-20 w-20 rounded-full border-4 border-white/20 object-cover" />
+                <Avatar src={user?.avatar_url} name={user?.full_name} size="lg" className="h-20 w-20 border-4 border-white/20" />
                 <div>
                   <p className="text-sm font-bold uppercase text-emerald-200">Tài khoản của tôi</p>
                   <h1 className="mt-1 text-3xl font-black">{user?.full_name || 'Khách hàng'}</h1>
@@ -370,7 +370,7 @@ const AccountPage = () => {
             {activeTab === 'profile' && (
               <SectionShell title="Thông tin cá nhân" description="Thông tin này dùng cho hồ sơ công khai và hỗ trợ chăm sóc khách hàng.">
                 <div className="mb-6 flex flex-col gap-4 rounded-3xl bg-[#f6f3ee] p-4 dark:bg-slate-950 sm:flex-row sm:items-center">
-                  <img src={getImageUrl(user?.avatar_url, 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80')} alt={user?.full_name} className="h-24 w-24 rounded-full object-cover" />
+                  <Avatar src={user?.avatar_url} name={user?.full_name} size="xl" />
                   <div>
                     <label className="inline-flex cursor-pointer items-center gap-2 rounded-2xl bg-slate-950 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800">
                       <Camera className="h-4 w-4" />

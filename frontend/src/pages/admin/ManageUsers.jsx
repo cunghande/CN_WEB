@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import Button from '../../components/common/Button.jsx';
+import Avatar from '../../components/common/Avatar.jsx';
 import Modal from '../../components/common/Modal.jsx';
 import Spinner from '../../components/common/Spinner.jsx';
 import {
@@ -24,7 +25,6 @@ import {
   updateAdminUserStatusAPI
 } from '../../services/authService.js';
 import { formatPrice } from '../../utils/formatPrice.js';
-import { getImageUrl } from '../../utils/imageUrl.js';
 import { getOrderDate, statusMeta } from '../../utils/productHelpers.js';
 
 const roleMeta = {
@@ -229,7 +229,7 @@ const ManageUsers = () => {
                       <tr key={user.id} className={ui.rowHover}>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
-                            <img src={getImageUrl(user.avatar_url, 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80')} alt={user.full_name} className="h-11 w-11 rounded-full object-cover" />
+                            <Avatar src={user.avatar_url} name={user.full_name} size="md" className="h-11 w-11" />
                             <div>
                               <div className="font-black">{user.full_name}</div>
                               <div className={`text-xs ${ui.muted}`}>{user.email}</div>
@@ -271,7 +271,7 @@ const ManageUsers = () => {
           <div className="space-y-5">
             <div className="flex flex-col justify-between gap-4 rounded-3xl bg-slate-50 p-4 dark:bg-slate-950 md:flex-row md:items-center">
               <div className="flex items-center gap-4">
-                <img src={getImageUrl(selectedUser.avatar_url, 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80')} alt={selectedUser.full_name} className="h-16 w-16 rounded-full object-cover" />
+                <Avatar src={selectedUser.avatar_url} name={selectedUser.full_name} size="lg" />
                 <div>
                   <div className="text-xl font-black text-slate-950 dark:text-white">{selectedUser.full_name}</div>
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-slate-500 dark:text-slate-400">

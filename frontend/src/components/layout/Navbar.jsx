@@ -2,12 +2,12 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { Bell, Gift, LogOut, Menu, Moon, Search, ShoppingBag, ShieldCheck, Sun, User, X } from 'lucide-react';
+import Avatar from '../common/Avatar.jsx';
 import ReviewRequestModal from '../product/ReviewRequestModal.jsx';
 import { logout, setTheme } from '../../redux/slices/authSlice.js';
 import { fetchNotifications, markAllNotificationsReadLocal, markNotificationReadLocal } from '../../redux/slices/notificationSlice.js';
 import { markAllNotificationsReadAPI, markNotificationReadAPI } from '../../services/notificationService.js';
 import { addProductCommentAPI, addProductReviewAPI } from '../../services/productService.js';
-import { getImageUrl } from '../../utils/imageUrl.js';
 
 const getReviewProductId = (notification) => {
   if (notification.type === 'product_review_request' && notification.entity_type === 'product' && notification.entity_id) {
@@ -204,7 +204,7 @@ const Navbar = () => {
               <div className="hidden md:block">
                 <div className="relative" onMouseEnter={() => setAccountOpen(true)} onMouseLeave={() => setAccountOpen(false)}>
                   <button onClick={() => setAccountOpen((open) => !open)} className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1.5 shadow-sm hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800">
-                    {user.avatar_url ? <img src={getImageUrl(user.avatar_url)} alt={user.full_name} className="h-8 w-8 rounded-full object-cover" /> : <span className="grid h-8 w-8 place-items-center rounded-full bg-emerald-500 text-xs font-black text-slate-950">{user.full_name?.charAt(0) || 'U'}</span>}
+                    <Avatar src={user.avatar_url} name={user.full_name} size="sm" />
                     <span className="max-w-28 truncate pr-1 text-xs font-black text-slate-950 dark:text-white">{user.full_name}</span>
                   </button>
                   {accountOpen && (
