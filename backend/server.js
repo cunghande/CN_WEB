@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import authRoutes from './src/routes/auth.routes.js';
 import addressRoutes from './src/routes/address.routes.js';
+import aiRoutes from './src/routes/ai.routes.js';
 import categoryRoutes from './src/routes/category.routes.js';
 import couponRoutes from './src/routes/coupon.routes.js';
 import locationRoutes from './src/routes/location.routes.js';
@@ -31,6 +32,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Các route REST chính của hệ thống.
 app.use('/api/auth', authRoutes);
 app.use('/api/user', addressRoutes);
+app.use('/api/ai', aiRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/coupons', couponRoutes);

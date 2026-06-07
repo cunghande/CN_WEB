@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { BrowserRouter, Route, Routes, useLocation, useNavigationType } from 'react-router-dom';
 import Footer from '../components/layout/Footer.jsx';
 import Navbar from '../components/layout/Navbar.jsx';
+import AiChatWidget from '../components/ai/AiChatWidget.jsx';
 import Dashboard from '../pages/admin/Dashboard.jsx';
 import ManageOrders from '../pages/admin/ManageOrders.jsx';
 import ManageProducts from '../pages/admin/ManageProducts.jsx';
@@ -72,6 +73,7 @@ const AppRouter = () => (
         </Routes>
       </main>
       <Footer />
+      <AiChatWidget />
     </div>
   </BrowserRouter>
 );
