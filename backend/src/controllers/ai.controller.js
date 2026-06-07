@@ -1,9 +1,15 @@
+import Coupon from '../models/Coupon.model.js';
 import Product from '../models/Product.model.js';
 import { generateWithOpenRouterFallback } from '../services/openRouterService.js';
 import { sendResponse } from '../utils/helpers.js';
 
 const MAX_HISTORY_MESSAGES = 8;
 const MAX_PRODUCT_CONTEXT = 35;
+const PRODUCT_INTENTS = new Set(['styling', 'search', 'size']);
+const PRIORITY_COUPON_CODES = ['WELCOME10', 'SALE20', 'FREESHIP', 'SHIP50'];
+
+const normalize = (value) => String(value || '').toLowerCase().normalize('NFC');
+const stripVietnameseMarks = (value) => normalize(value).normalize('NFD').replace(/\p{Diacritic}/gu, '');
 
 const compactProduct = (product) => {
   const variants = product.variants || [];
@@ -24,22 +30,51 @@ const compactProduct = (product) => {
   };
 };
 
+const compactCoupon = (coupon) => ({
+  id: coupon.id,
+  code: coupon.code,
+  name: coupon.name,
+  type: coupon.type,
+  discount_percent: Number(coupon.discount_percent || 0),
+  max_discount_amount: coupon.max_discount_amount === null ? null : Number(coupon.max_discount_amount),
+  min_order_amount: Number(coupon.min_order_amount || 0),
+  requires_claim: Boolean(coupon.requires_claim),
+  claim_type: coupon.claim_type,
+  claim_min_items: Number(coupon.claim_min_items || 0),
+  claim_min_subtotal: Number(coupon.claim_min_subtotal || 0),
+  event_title: coupon.event_title,
+  event_description: coupon.event_description,
+  event_badge: coupon.event_badge,
+  remaining_uses: coupon.usage_limit !== null ? Math.max(0, Number(coupon.usage_limit || 0) - Number(coupon.used_count || 0)) : null
+});
+
+const inferIntent = (message) => {
+  const text = normalize(message);
+  const plainText = stripVietnameseMarks(text);
+  const compactText = plainText.replace(/[!?.。]+/g, '').replace(/\s+/g, ' ').trim();
+
+  if (/^(hi|hello|hey|alo|chao|xin chao|shop oi|bot oi|ad oi)$/.test(compactText)) return 'greeting';
+  if (/voucher|ma giam|ma giam gia|khuyen mai|coupon|freeship|free ship|san ma|giam gia|uu dai/.test(plainText)) return 'voucher';
+  if (/doi tra|bao hanh|giao hang|phi ship|van chuyen|cod|thanh toan|dia chi/.test(plainText)) return 'policy';
+  if (/size|co|vua|cao|nang|kg|m\d/.test(plainText)) return 'size';
+  if (/phoi|outfit|mac|di choi|di lam|du tiec|hen ho|style|phong cach/.test(plainText)) return 'styling';
+  if (/tim|kiem|co.*khong|mua|duoi|tren|gia|bao nhieu|con hang/.test(plainText)) return 'search';
+
+  return 'general';
+};
+
 const selectRelevantProducts = (products, message) => {
-  const words = String(message || '')
-    .toLowerCase()
-    .split(/\s+/)
-    .map((word) => word.trim())
-    .filter((word) => word.length >= 2);
+  const words = stripVietnameseMarks(message).split(/\s+/).map((word) => word.trim()).filter((word) => word.length >= 2);
 
   return products
     .map((product) => {
-      const searchableText = [
+      const searchableText = stripVietnameseMarks([
         product.name,
         product.category_name,
         product.description,
         ...(product.tags || []).map((tag) => tag.name),
         ...(product.variants || []).map((variant) => `${variant.color} ${variant.size}`)
-      ].join(' ').toLowerCase();
+      ].join(' '));
 
       const score = words.filter((word) => searchableText.includes(word)).length;
       return { product, score };
@@ -47,15 +82,6 @@ const selectRelevantProducts = (products, message) => {
     .sort((a, b) => b.score - a.score || Number(b.product.like_count || 0) - Number(a.product.like_count || 0))
     .slice(0, MAX_PRODUCT_CONTEXT)
     .map((item) => compactProduct(item.product));
-};
-
-const inferIntent = (message) => {
-  const text = String(message || '').toLowerCase();
-  if (/size|cỡ|vừa|cao|nặng|kg|m\d/.test(text)) return 'size';
-  if (/tìm|kiếm|có.*không|mua|dưới|trên|giá/.test(text)) return 'search';
-  if (/phối|outfit|mặc|đi chơi|đi làm|dự tiệc|hẹn hò/.test(text)) return 'styling';
-  if (/đổi trả|ship|giao|voucher|mã/.test(text)) return 'policy';
-  return 'general';
 };
 
 const buildSuggestedQueries = (products, message) => {
@@ -70,10 +96,10 @@ const buildSuggestedQueries = (products, message) => {
 };
 
 const makeProductReason = (product, message) => {
-  const text = String(message || '').toLowerCase();
+  const text = stripVietnameseMarks(message);
   const hints = [];
   if (product.category) hints.push(product.category);
-  const matchedColor = product.colors?.find((color) => text.includes(String(color).toLowerCase()));
+  const matchedColor = product.colors?.find((color) => text.includes(stripVietnameseMarks(color)));
   if (matchedColor) hints.push(`có màu ${matchedColor}`);
   if (product.price) hints.push(`giá ${Number(product.price).toLocaleString('vi-VN')}đ`);
 
@@ -82,35 +108,91 @@ const makeProductReason = (product, message) => {
     : 'Phù hợp với nhu cầu bạn vừa mô tả.';
 };
 
-const buildSystemPrompt = () => `
-Bạn là AI stylist và trợ lý chăm sóc khách hàng cho website thời trang LuxuryWear.
-Nhiệm vụ:
-- Tư vấn chọn đồ, phối outfit, size và màu sắc theo nhu cầu khách.
-- Hỗ trợ tìm sản phẩm trong PRODUCT_CONTEXT.
-- Không bịa sản phẩm, chính sách hoặc khuyến mãi ngoài dữ liệu được cung cấp.
-- Trả lời bằng tiếng Việt tự nhiên.
-- Chỉ viết 2 câu ngắn, tối đa 280 ký tự.
-- Không liệt kê tên sản phẩm chi tiết vì hệ thống sẽ hiển thị sản phẩm riêng bên dưới.
+const buildSystemPrompt = (intent) => `
+Bạn là trợ lý AI của website thời trang LuxuryWear.
+Hãy trả lời tự nhiên như nhân viên tư vấn thân thiện, không máy móc.
+
+Quy tắc bắt buộc:
+- Luôn trả lời bằng tiếng Việt.
+- Tôn trọng đúng ý định hiện tại, không tự lái câu chuyện sang sản phẩm nếu khách không hỏi sản phẩm.
+- Nếu intent là greeting: chào lại ngắn gọn, hỏi khách cần tìm đồ, voucher hay đơn hàng; không gợi ý sản phẩm cụ thể.
+- Nếu intent là voucher: giải thích voucher dựa trên COUPON_CONTEXT, nhắc khách vào trang "Săn voucher" hoặc giỏ hàng để áp mã; không tư vấn quần áo.
+- Nếu intent là policy: trả lời thận trọng, không bịa chính sách chi tiết ngoài dữ liệu có trong prompt.
+- Nếu intent là styling/search/size: tư vấn chọn đồ dựa trên PRODUCT_CONTEXT.
+- Nếu intent là general: trò chuyện tự nhiên, sau đó gợi ý khách có thể hỏi về chọn đồ, voucher hoặc đơn hàng.
+- Tối đa 3 câu, không dùng markdown code block.
+
+INTENT: ${intent}
 `;
 
-const buildUserPrompt = ({ message, history, products }) => `
+const buildUserPrompt = ({ message, history, products, coupons }) => `
 CHAT_HISTORY:
 ${JSON.stringify(history.slice(-MAX_HISTORY_MESSAGES))}
 
 PRODUCT_CONTEXT:
 ${JSON.stringify(products)}
 
+COUPON_CONTEXT:
+${JSON.stringify(coupons)}
+
 CUSTOMER_MESSAGE:
 ${message}
 `;
 
-const buildLocalFallbackReply = (message, products) => {
-  const intent = inferIntent(message);
-  const firstCategory = products[0]?.category || 'sản phẩm phù hợp';
-  if (intent === 'size') return 'Bạn cho mình thêm chiều cao, cân nặng và form mặc thích rộng hay vừa nhé. Trước mắt mình gợi ý vài sản phẩm có size và tồn kho dễ chọn bên dưới.';
-  if (intent === 'search') return `Mình đã lọc nhanh các ${firstCategory} gần với nhu cầu của bạn. Bạn có thể bấm vào từng sản phẩm để xem màu, size và tồn kho chi tiết.`;
-  if (intent === 'policy') return 'Mình có thể hỗ trợ tìm sản phẩm, chọn size, phối đồ và áp voucher. Với chính sách cụ thể, bạn nên kiểm tra lại thông tin trên trang đơn hàng hoặc liên hệ shop.';
-  return `Mình gợi ý bạn bắt đầu với ${firstCategory}, sau đó phối thêm item cùng tông màu để outfit gọn và dễ mặc hơn. Một vài sản phẩm phù hợp đang ở bên dưới.`;
+const buildCouponReply = (coupons) => {
+  if (coupons.length === 0) {
+    return 'Hiện mình chưa thấy voucher khả dụng trong hệ thống. Bạn có thể vào trang Săn voucher để kiểm tra các nhiệm vụ mới nhất.';
+  }
+
+  const descriptions = coupons.slice(0, 3).map((coupon) => {
+    if (coupon.type === 'free_shipping') return `${coupon.code || coupon.name} miễn hoặc giảm phí vận chuyển`;
+    if (coupon.discount_percent) return `${coupon.code || coupon.name} giảm ${coupon.discount_percent}%`;
+    return coupon.code || coupon.name;
+  });
+
+  return `Hiện có voucher như ${descriptions.join(', ')}. Bạn vào trang Săn voucher để nhận mã, hoặc mở giỏ hàng để chọn voucher phù hợp với đơn hiện tại.`;
+};
+
+const buildLocalFallbackReply = (message, intent, products, coupons) => {
+  if (intent === 'greeting') {
+    return 'Chào bạn, mình là trợ lý của LuxuryWear. Bạn muốn mình hỗ trợ tìm sản phẩm, xem voucher hay kiểm tra thông tin đơn hàng?';
+  }
+  if (intent === 'voucher') return buildCouponReply(coupons);
+  if (intent === 'policy') {
+    return 'Mình có thể hỗ trợ thông tin chung về giao hàng, thanh toán COD, voucher và đơn hàng. Với trường hợp cụ thể, bạn nên kiểm tra trong trang đơn hàng hoặc liên hệ shop.';
+  }
+  if (intent === 'size') {
+    return 'Bạn cho mình thêm chiều cao, cân nặng và form mặc thích rộng hay vừa nhé. Trước mắt mình gợi ý vài sản phẩm có size và tồn kho dễ chọn bên dưới.';
+  }
+  if (intent === 'search') {
+    const firstCategory = products[0]?.category || 'sản phẩm phù hợp';
+    return `Mình đã lọc nhanh các ${firstCategory} gần với nhu cầu của bạn. Bạn có thể bấm vào từng sản phẩm để xem màu, size và tồn kho chi tiết.`;
+  }
+  if (intent === 'styling') {
+    const firstCategory = products[0]?.category || 'sản phẩm phù hợp';
+    return `Mình gợi ý bạn bắt đầu với ${firstCategory}, sau đó phối thêm item cùng tông màu để outfit gọn và dễ mặc hơn. Một vài sản phẩm phù hợp đang ở bên dưới.`;
+  }
+  return 'Mình nghe đây. Bạn có thể hỏi mình về cách phối đồ, tìm sản phẩm, chọn size, voucher đang có hoặc thông tin đơn hàng trên LuxuryWear.';
+};
+
+const loadContext = async (intent, message, userId) => {
+  const shouldLoadProducts = PRODUCT_INTENTS.has(intent);
+  const shouldLoadCoupons = intent === 'voucher';
+  const allProducts = shouldLoadProducts ? await Product.findAll(null, userId || null) : [];
+  const products = shouldLoadProducts ? selectRelevantProducts(allProducts, message) : [];
+  const coupons = shouldLoadCoupons
+    ? (await Coupon.listAll())
+      .filter((coupon) => coupon.is_active)
+      .sort((a, b) => {
+        const aPriority = PRIORITY_COUPON_CODES.includes(a.code) ? 0 : 1;
+        const bPriority = PRIORITY_COUPON_CODES.includes(b.code) ? 0 : 1;
+        return aPriority - bPriority || Number(a.sort_order || 999) - Number(b.sort_order || 999);
+      })
+      .slice(0, 12)
+      .map(compactCoupon)
+    : [];
+
+  return { allProducts, products, coupons };
 };
 
 export const chatWithStylist = async (req, res, next) => {
@@ -120,26 +202,26 @@ export const chatWithStylist = async (req, res, next) => {
     if (cleanMessage.length < 2) return sendResponse(res, 400, false, 'Vui lòng nhập nội dung cần tư vấn.');
     if (cleanMessage.length > 1000) return sendResponse(res, 400, false, 'Nội dung tư vấn tối đa 1000 ký tự.');
 
-    const allProducts = await Product.findAll(null, req.user?.id || null);
-    const products = selectRelevantProducts(allProducts, cleanMessage);
+    const intent = inferIntent(cleanMessage);
+    const { allProducts, products, coupons } = await loadContext(intent, cleanMessage, req.user?.id);
     const messages = [
-      { role: 'system', content: buildSystemPrompt() },
-      { role: 'user', content: buildUserPrompt({ message: cleanMessage, history, products }) }
+      { role: 'system', content: buildSystemPrompt(intent) },
+      { role: 'user', content: buildUserPrompt({ message: cleanMessage, history, products, coupons }) }
     ];
 
     let aiText = '';
     let usedModel = 'local-fallback';
     try {
-      const generated = await generateWithOpenRouterFallback({ messages, temperature: 0.35 });
+      const generated = await generateWithOpenRouterFallback({ messages, temperature: intent === 'greeting' ? 0.6 : 0.35 });
       aiText = generated.text;
       usedModel = generated.model;
-    } catch (error) {
-      aiText = buildLocalFallbackReply(cleanMessage, products);
+    } catch {
+      aiText = buildLocalFallbackReply(cleanMessage, intent, products, coupons);
     }
+
     const productMap = new Map(allProducts.map((product) => [Number(product.id), product]));
-    const recommendedProducts = products
-      .slice(0, 5)
-      .map((item) => {
+    const recommendedProducts = PRODUCT_INTENTS.has(intent)
+      ? products.slice(0, 5).map((item) => {
         const product = productMap.get(Number(item.id));
         if (!product) return null;
         return {
@@ -150,13 +232,13 @@ export const chatWithStylist = async (req, res, next) => {
           category_name: product.category_name,
           reason: makeProductReason(item, cleanMessage)
         };
-      })
-      .filter(Boolean);
+      }).filter(Boolean)
+      : [];
 
     return sendResponse(res, 200, true, 'AI đã tạo gợi ý tư vấn', {
-      reply: aiText || buildLocalFallbackReply(cleanMessage, products),
-      intent: inferIntent(cleanMessage),
-      suggested_queries: buildSuggestedQueries(products, cleanMessage),
+      reply: aiText || buildLocalFallbackReply(cleanMessage, intent, products, coupons),
+      intent,
+      suggested_queries: PRODUCT_INTENTS.has(intent) ? buildSuggestedQueries(products, cleanMessage) : [],
       recommended_products: recommendedProducts,
       model: usedModel
     });
