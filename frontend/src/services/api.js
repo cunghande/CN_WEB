@@ -9,7 +9,7 @@ const api = axios.create({
   }
 });
 
-// Mọi request sau khi đăng nhập đều tự gắn JWT để backend kiểm tra quyền.
+// Mỗi request sau khi đăng nhập đều tự gắn JWT để backend kiểm tra quyền.
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');

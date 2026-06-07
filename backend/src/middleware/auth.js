@@ -1,16 +1,23 @@
-import { verifyToken } from '../config/jwt.js';
+﻿import { verifyToken } from '../config/jwt.js';
+import User from '../models/User.model.js';
 import { sendResponse } from '../utils/helpers.js';
 
-export const authenticate = (req, res, next) => {
+export const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
-
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return sendResponse(res, 401, false, 'Không tìm thấy mã xác thực');
     }
 
     const token = authHeader.split(' ')[1];
-    req.user = verifyToken(token);
+    const payload = verifyToken(token);
+    const user = await User.findById(payload.id);
+    if (!user) return sendResponse(res, 401, false, 'Tài khoản không tồn tại hoặc đã bị xóa');
+    if (user.status === 'blocked') {
+      return sendResponse(res, 403, false, 'Tài khoản của bạn đang bị khóa. Vui lòng liên hệ quản trị viên.');
+    }
+
+    req.user = { ...payload, ...user };
     next();
   } catch {
     return sendResponse(res, 403, false, 'Mã xác thực không hợp lệ hoặc đã hết hạn');

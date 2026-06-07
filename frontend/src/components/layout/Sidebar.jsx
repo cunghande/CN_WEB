@@ -40,31 +40,32 @@ const Sidebar = ({ onCategoryChange }) => {
       <button
         key={id || 'all'}
         onClick={() => handleSelect(id)}
-        className={`flex w-full items-center justify-between rounded-md px-3 py-2.5 text-left text-sm transition ${
-          active ? 'bg-premium-50 font-bold text-premium-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'
+        className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm transition ${
+          active
+            ? 'bg-slate-950 font-black text-white dark:bg-white dark:text-slate-950'
+            : 'text-slate-600 hover:bg-white hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
         }`}
         title={description}
       >
         <span className="truncate pr-3">{label}</span>
-        {active && <Check className="h-4 w-4 flex-shrink-0 text-premium-700" />}
+        {active && <Check className="h-4 w-4 flex-shrink-0 text-emerald-300 dark:text-emerald-700" />}
       </button>
     );
   };
 
   return (
-    <aside className="w-full flex-shrink-0 lg:w-72">
-      <div className="sticky top-24 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="mb-5 flex items-center gap-2 border-b border-slate-100 pb-4">
-          <SlidersHorizontal className="h-4 w-4 text-premium-700" />
-          <h3 className="text-sm font-black uppercase text-slate-950">Danh mục</h3>
+    <aside className="w-full flex-shrink-0">
+      <div className="sticky top-24 rounded-3xl border border-white bg-white/82 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="mb-4 flex items-center gap-2 border-b border-slate-100 pb-4 dark:border-slate-800">
+          <div className="grid h-10 w-10 place-items-center rounded-2xl bg-emerald-400 text-slate-950"><SlidersHorizontal className="h-4 w-4" /></div>
+          <div>
+            <h3 className="text-sm font-black text-slate-950 dark:text-white">Danh mục</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Lọc nhanh theo nhóm hàng</p>
+          </div>
         </div>
 
         {loading ? (
-          <div className="space-y-2">
-            {[1, 2, 3, 4, 5].map((item) => (
-              <div key={item} className="h-9 animate-pulse rounded-md bg-slate-100" />
-            ))}
-          </div>
+          <div className="space-y-2">{[1, 2, 3, 4, 5].map((item) => <div key={item} className="h-11 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />)}</div>
         ) : (
           <div className="max-h-[60vh] space-y-1 overflow-y-auto pr-1">
             {categoryButton('', 'Tất cả sản phẩm', 'Xem toàn bộ sản phẩm')}

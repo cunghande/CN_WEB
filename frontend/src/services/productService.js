@@ -44,6 +44,16 @@ export const addProductCommentAPI = async (id, content) => {
   return response.data;
 };
 
+export const updateProductCommentAPI = async (productId, commentId, content) => {
+  const response = await api.put(`/products/${productId}/comments/${commentId}`, { content });
+  return response.data;
+};
+
+export const deleteProductCommentAPI = async (productId, commentId) => {
+  const response = await api.delete(`/products/${productId}/comments/${commentId}`);
+  return response.data;
+};
+
 export const setCommentReactionAPI = async (productId, commentId, reaction) => {
   const response = await api.post(`/products/${productId}/comments/${commentId}/reaction`, { reaction });
   return response.data;
@@ -65,6 +75,10 @@ export const setReplyReactionAPI = async (productId, commentId, replyId, reactio
 };
 
 export const addProductReviewAPI = async (id, reviewData) => {
-  const response = await api.post(`/products/${id}/reviews`, reviewData);
+  const response = await api.post(`/products/${id}/reviews`, reviewData, reviewData instanceof FormData ? {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  } : undefined);
   return response.data;
 };

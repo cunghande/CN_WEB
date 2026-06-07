@@ -12,6 +12,16 @@ export const registerAPI = async (userData) => {
   return response.data;
 };
 
+export const forgotPasswordAPI = async (email) => {
+  const response = await api.post('/auth/forgot-password', { email });
+  return response.data;
+};
+
+export const resetPasswordAPI = async (passwordData) => {
+  const response = await api.post('/auth/reset-password', passwordData);
+  return response.data;
+};
+
 export const getMeAPI = async () => {
   const response = await api.get('/auth/me');
   return response.data;
@@ -36,6 +46,26 @@ export const updateAvatarAPI = async (formData) => {
 
 export const getUsersAPI = async () => {
   const response = await api.get('/auth/users');
+  return response.data;
+};
+
+export const getAdminUserDetailAPI = async (id) => {
+  const response = await api.get(`/auth/users/${id}`);
+  return response.data;
+};
+
+export const updateAdminUserStatusAPI = async (id, status) => {
+  const response = await api.put(`/auth/users/${id}/status`, { status });
+  return response.data;
+};
+
+export const updateAdminUserRoleAPI = async (id, role) => {
+  const response = await api.put(`/auth/users/${id}/role`, { role });
+  return response.data;
+};
+
+export const sendAdminUserResetPasswordAPI = async (id) => {
+  const response = await api.post(`/auth/users/${id}/reset-password`);
   return response.data;
 };
 

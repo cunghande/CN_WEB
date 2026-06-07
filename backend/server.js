@@ -5,7 +5,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import authRoutes from './src/routes/auth.routes.js';
 import addressRoutes from './src/routes/address.routes.js';
+import aiRoutes from './src/routes/ai.routes.js';
 import categoryRoutes from './src/routes/category.routes.js';
+import couponRoutes from './src/routes/coupon.routes.js';
 import locationRoutes from './src/routes/location.routes.js';
 import notificationRoutes from './src/routes/notification.routes.js';
 import orderRoutes from './src/routes/order.routes.js';
@@ -24,14 +26,16 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// File upload được lưu trong backend/uploads và public qua endpoint /uploads.
+// Ảnh upload được lưu ở backend/uploads và public qua /uploads.
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Các route REST chính của hệ thống.
 app.use('/api/auth', authRoutes);
 app.use('/api/user', addressRoutes);
+app.use('/api/ai', aiRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/categories', categoryRoutes);
+app.use('/api/coupons', couponRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/shipping', shippingRoutes);

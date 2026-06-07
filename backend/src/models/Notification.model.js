@@ -43,6 +43,20 @@ class Notification {
     return admins.length;
   }
 
+  static async exists({ user_id, order_id = null, type, entity_type = null, entity_id = null }) {
+    const [rows] = await db.execute(
+      `SELECT id FROM notifications
+       WHERE user_id = ?
+         AND (order_id <=> ?)
+         AND type = ?
+         AND (entity_type <=> ?)
+         AND (entity_id <=> ?)
+       LIMIT 1`,
+      [user_id, order_id, type, entity_type, entity_id]
+    );
+    return Boolean(rows[0]);
+  }
+
   static async markRead(id, userId) {
     await db.execute('UPDATE notifications SET is_read = TRUE WHERE id = ? AND user_id = ?', [id, userId]);
     const [rows] = await db.execute('SELECT * FROM notifications WHERE id = ? AND user_id = ?', [id, userId]);

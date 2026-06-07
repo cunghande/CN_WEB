@@ -1,19 +1,17 @@
 import UserAddress from '../models/UserAddress.model.js';
 import { sendResponse } from '../utils/helpers.js';
+import { normalizePhone, normalizeText, validateAddressPayload } from '../utils/validators.js';
 
-const requiredFields = [
-  'receiver_name',
-  'receiver_phone',
-  'province_code',
-  'province_name',
-  'district_code',
-  'district_name',
-  'ward_code',
-  'ward_name',
-  'address_line'
-];
-
-const validateAddress = (body) => requiredFields.every((field) => body[field]);
+const cleanAddressPayload = (body) => ({
+  ...body,
+  receiver_name: normalizeText(body.receiver_name),
+  receiver_phone: normalizePhone(body.receiver_phone),
+  province_name: normalizeText(body.province_name),
+  district_name: normalizeText(body.district_name),
+  ward_name: normalizeText(body.ward_name),
+  hamlet: normalizeText(body.hamlet),
+  address_line: normalizeText(body.address_line)
+});
 
 export const getAddresses = async (req, res, next) => {
   try {
@@ -26,11 +24,10 @@ export const getAddresses = async (req, res, next) => {
 
 export const createAddress = async (req, res, next) => {
   try {
-    if (!validateAddress(req.body)) {
-      return sendResponse(res, 400, false, 'Vui lòng nhập đầy đủ địa chỉ giao hàng');
-    }
+    const error = validateAddressPayload(req.body);
+    if (error) return sendResponse(res, 400, false, error);
 
-    const id = await UserAddress.create(req.user.id, req.body);
+    const id = await UserAddress.create(req.user.id, cleanAddressPayload(req.body));
     return sendResponse(res, 201, true, 'Thêm địa chỉ thành công', { id });
   } catch (error) {
     next(error);
@@ -39,11 +36,10 @@ export const createAddress = async (req, res, next) => {
 
 export const updateAddress = async (req, res, next) => {
   try {
-    if (!validateAddress(req.body)) {
-      return sendResponse(res, 400, false, 'Vui lòng nhập đầy đủ địa chỉ giao hàng');
-    }
+    const error = validateAddressPayload(req.body);
+    if (error) return sendResponse(res, 400, false, error);
 
-    await UserAddress.update(req.params.id, req.user.id, req.body);
+    await UserAddress.update(req.params.id, req.user.id, cleanAddressPayload(req.body));
     return sendResponse(res, 200, true, 'Cập nhật địa chỉ thành công');
   } catch (error) {
     next(error);

@@ -1,5 +1,6 @@
 import Product from '../models/Product.model.js';
 import { sendResponse } from '../utils/helpers.js';
+import { isPositiveNumber, normalizeText } from '../utils/validators.js';
 
 const parseJsonArray = (value) => {
   if (!value) return [];
@@ -10,6 +11,20 @@ const parseJsonArray = (value) => {
   } catch {
     return [];
   }
+};
+
+const validateProductPayload = ({ name, base_price, variants = [] }) => {
+  if (!normalizeText(name)) return 'Tên sản phẩm là bắt buộc.';
+  if (normalizeText(name).length < 2 || normalizeText(name).length > 120) return 'Tên sản phẩm phải từ 2-120 ký tự.';
+  if (!isPositiveNumber(base_price)) return 'Giá sản phẩm phải là số dương.';
+  for (const variant of variants) {
+    if (!normalizeText(variant.size)) return 'Mỗi biến thể cần có size.';
+    if (!normalizeText(variant.color)) return 'Mỗi biến thể cần có màu.';
+    if (!Number.isInteger(Number(variant.stock_quantity)) || Number(variant.stock_quantity) < 0) {
+      return 'Tồn kho biến thể phải là số nguyên không âm.';
+    }
+  }
+  return '';
 };
 
 export const getProducts = async (req, res, next) => {
@@ -37,7 +52,9 @@ export const createProduct = async (req, res, next) => {
     const { category_id, name, description, base_price, variants, tags } = req.body;
     let image_url = req.body.image_url || '';
     if (req.file) image_url = `/uploads/${req.file.filename}`;
-    if (!name || !base_price) return sendResponse(res, 400, false, 'Tên và giá sản phẩm là bắt buộc');
+    const parsedVariants = parseJsonArray(variants);
+    const validationError = validateProductPayload({ name, base_price, variants: parsedVariants });
+    if (validationError) return sendResponse(res, 400, false, validationError);
 
     const productId = await Product.create({
       category_id,
@@ -45,7 +62,7 @@ export const createProduct = async (req, res, next) => {
       description,
       base_price,
       image_url,
-      variants: parseJsonArray(variants),
+      variants: parsedVariants,
       tags: parseJsonArray(tags)
     });
 
@@ -64,13 +81,21 @@ export const updateProduct = async (req, res, next) => {
     const existingProduct = await Product.findById(req.params.id);
     if (!existingProduct) return sendResponse(res, 404, false, 'Không tìm thấy sản phẩm');
 
+    const parsedVariants = variants !== undefined ? parseJsonArray(variants) : undefined;
+    const validationError = validateProductPayload({
+      name: name ? normalizeText(name) : existingProduct.name,
+      base_price: base_price || existingProduct.base_price,
+      variants: parsedVariants || existingProduct.variants || []
+    });
+    if (validationError) return sendResponse(res, 400, false, validationError);
+
     await Product.update(req.params.id, {
       category_id: category_id || existingProduct.category_id,
-      name: name || existingProduct.name,
-      description: description !== undefined ? description : existingProduct.description,
+      name: name ? normalizeText(name) : existingProduct.name,
+      description: description !== undefined ? normalizeText(description) : existingProduct.description,
       base_price: base_price || existingProduct.base_price,
       image_url: image_url || existingProduct.image_url,
-      variants: variants !== undefined ? parseJsonArray(variants) : undefined,
+      variants: parsedVariants,
       tags: tags !== undefined ? parseJsonArray(tags) : undefined
     });
 
@@ -103,10 +128,39 @@ export const toggleLike = async (req, res, next) => {
 export const addComment = async (req, res, next) => {
   try {
     const { content } = req.body;
-    if (!content || !content.trim()) return sendResponse(res, 400, false, 'Vui lòng nhập bình luận');
-    const id = await Product.addComment(req.params.id, req.user.id, content.trim());
+    const cleanContent = normalizeText(content);
+    if (cleanContent.length < 2 || cleanContent.length > 1000) return sendResponse(res, 400, false, 'Bình luận phải từ 2-1000 ký tự.');
+    const id = await Product.addComment(req.params.id, req.user.id, cleanContent);
     if (!id) return sendResponse(res, 403, false, 'Bạn cần mua và nhận sản phẩm trước khi bình luận');
     return sendResponse(res, 201, true, 'Đã gửi bình luận', { id });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateComment = async (req, res, next) => {
+  try {
+    const { content } = req.body;
+    const cleanContent = normalizeText(content);
+    if (cleanContent.length < 2 || cleanContent.length > 1000) return sendResponse(res, 400, false, 'Bình luận phải từ 2-1000 ký tự.');
+
+    const result = await Product.updateComment(req.params.productId, req.params.commentId, req.user.id, cleanContent);
+    if (result === 'FORBIDDEN') return sendResponse(res, 403, false, 'Bạn chỉ được chỉnh sửa bình luận của chính mình');
+    if (!result) return sendResponse(res, 404, false, 'Không tìm thấy bình luận');
+
+    return sendResponse(res, 200, true, 'Đã cập nhật bình luận');
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteComment = async (req, res, next) => {
+  try {
+    const result = await Product.deleteComment(req.params.productId, req.params.commentId, req.user.id);
+    if (result === 'FORBIDDEN') return sendResponse(res, 403, false, 'Bạn chỉ được xóa bình luận của chính mình');
+    if (!result) return sendResponse(res, 404, false, 'Không tìm thấy bình luận');
+
+    return sendResponse(res, 200, true, 'Đã xóa bình luận');
   } catch (error) {
     next(error);
   }
@@ -115,9 +169,12 @@ export const addComment = async (req, res, next) => {
 export const addReview = async (req, res, next) => {
   try {
     const { rating, content } = req.body;
+    const imageUrl = req.file ? `/uploads/${req.file.filename}` : '';
     const safeRating = Number(rating);
-    if (safeRating < 1 || safeRating > 5) return sendResponse(res, 400, false, 'Rating phải từ 1 đến 5');
-    const ok = await Product.addReview(req.params.id, req.user.id, safeRating, content || '');
+    const cleanContent = normalizeText(content);
+    if (!Number.isInteger(safeRating) || safeRating < 1 || safeRating > 5) return sendResponse(res, 400, false, 'Rating phải là số nguyên từ 1 đến 5.');
+    if (cleanContent && (cleanContent.length < 2 || cleanContent.length > 1000)) return sendResponse(res, 400, false, 'Nội dung đánh giá phải từ 2-1000 ký tự.');
+    const ok = await Product.addReview(req.params.id, req.user.id, safeRating, cleanContent, imageUrl);
     if (!ok) return sendResponse(res, 403, false, 'Bạn cần mua và nhận sản phẩm trước khi đánh giá');
     return sendResponse(res, 201, true, 'Đã gửi đánh giá');
   } catch (error) {
@@ -152,8 +209,10 @@ export const deleteCommentReaction = async (req, res, next) => {
 export const addCommentReply = async (req, res, next) => {
   try {
     const { content } = req.body;
-    if (!content || !content.trim()) return sendResponse(res, 400, false, 'Vui lòng nhập nội dung phản hồi');
-    const id = await Product.addCommentReply(req.params.productId, req.params.commentId, req.user.id, content.trim());
+    const cleanContent = normalizeText(content);
+    if (cleanContent.length < 2 || cleanContent.length > 1000) return sendResponse(res, 400, false, 'Phản hồi phải từ 2-1000 ký tự.');
+    const id = await Product.addCommentReply(req.params.productId, req.params.commentId, req.user.id, cleanContent);
+    if (id === 'FORBIDDEN') return sendResponse(res, 403, false, 'Bạn chỉ được phản hồi bình luận của chính mình, hoặc cần quyền admin');
     if (!id) return sendResponse(res, 404, false, 'Không tìm thấy bình luận');
     return sendResponse(res, 201, true, 'Đã gửi phản hồi', { id });
   } catch (error) {
@@ -175,3 +234,4 @@ export const setReplyReaction = async (req, res, next) => {
     next(error);
   }
 };
+

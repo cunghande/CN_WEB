@@ -1,59 +1,56 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
-import { ArrowRight, Check, Eye, EyeOff, Heart, Lock, Mail, PackageCheck, ShieldCheck, ShoppingBag, Sparkles, Star, Truck, User } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, Gift, Heart, KeyRound, Lock, Mail, PackageCheck, Search, ShieldCheck, ShoppingBag, Sparkles, Star, Truck, User } from 'lucide-react';
 import useAuth from '../../hooks/useAuth.js';
-import useCart from '../../hooks/useCart.js';
 import useProduct from '../../hooks/useProduct.js';
 import Button from '../../components/common/Button.jsx';
 import Modal from '../../components/common/Modal.jsx';
 import Spinner from '../../components/common/Spinner.jsx';
 import { loginSuccess } from '../../redux/slices/authSlice.js';
-import { getSocialLoginUrl, loginAPI, registerAPI } from '../../services/authService.js';
+import { forgotPasswordAPI, getSocialLoginUrl, loginAPI, registerAPI, resetPasswordAPI } from '../../services/authService.js';
 import { formatPrice } from '../../utils/formatPrice.js';
 import { getImageUrl } from '../../utils/imageUrl.js';
-import { getLowestStockVariant, getProductStock } from '../../utils/productHelpers.js';
+import { getProductStock } from '../../utils/productHelpers.js';
+import { isStrongEnoughPassword, isValidEmail, isValidPersonName, normalizeText } from '../../utils/validation.js';
 
 const fallbackImage = 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=900&q=80';
 
 const heroSlides = [
   {
-    title: 'Bộ sưu tập công sở mới',
-    subtitle: 'Form gọn, chất vải dễ mặc, phù hợp cho khách hàng thích phong cách chỉn chu hằng ngày.',
+    title: 'Tủ đồ hiện đại cho mỗi ngày',
+    subtitle: 'Chọn nhanh outfit, săn voucher và theo dõi đơn hàng trong một trải nghiệm mua sắm gọn gàng như sàn thương mại điện tử.',
     image: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1920&q=85'
   },
   {
-    title: 'Streetwear năng động',
-    subtitle: 'Áo khoác, hoodie, sneaker và phụ kiện được phân nhóm rõ để bán hàng nhanh hơn.',
-    image: 'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1920&q=85'
+    title: 'Streetwear, officewear và phụ kiện',
+    subtitle: 'Sản phẩm được chia danh mục rõ, có biến thể size màu, tồn kho, đánh giá và bình luận sau khi mua.',
+    image: 'https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1920&q=85'
   },
   {
-    title: 'Quản lý tồn kho theo biến thể',
-    subtitle: 'Mỗi sản phẩm có size, màu, tồn kho, đánh giá, bình luận và hashtag để demo nghiệp vụ đầy đủ.',
-    image: 'https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1920&q=85'
+    title: 'Mua nhiều hơn, tiết kiệm hơn',
+    subtitle: 'Voucher theo nhiệm vụ: mua 3 món nhận freeship, đơn từ 1 triệu giảm sâu, user mới có quà chào mừng.',
+    image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1920&q=85'
   }
 ];
 
-const SocialIcon = ({ provider }) => {
-  if (provider === 'google') {
-    return <span className="grid h-5 w-5 place-items-center rounded-full bg-white text-sm font-black text-[#4285F4]">G</span>;
-  }
-  return <span className="grid h-5 w-5 place-items-center rounded-full bg-[#1877F2] text-sm font-black text-white">f</span>;
-};
+const categories = [
+  { id: 1, name: 'Nam', label: 'Áo khoác, sơ mi, quần dài', image: 'https://images.unsplash.com/photo-1617137984095-74e4e5e3613f?auto=format&fit=crop&w=900&q=80' },
+  { id: 2, name: 'Nữ', label: 'Váy, blazer, outfit hằng ngày', image: 'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=900&q=80' },
+  { id: 7, name: 'Thể thao', label: 'Đồ tập, hoodie, quần jogger', image: 'https://images.unsplash.com/photo-1518310383802-640c2de311b2?auto=format&fit=crop&w=900&q=80' },
+  { id: 9, name: 'Giày & phụ kiện', label: 'Sneaker, túi, nón, thắt lưng', image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=900&q=80' }
+];
+
+const SocialIcon = ({ provider }) => provider === 'google'
+  ? <span className="grid h-5 w-5 place-items-center rounded-full bg-white text-sm font-black text-[#4285F4]">G</span>
+  : <span className="grid h-5 w-5 place-items-center rounded-full bg-[#1877F2] text-sm font-black text-white">f</span>;
 
 const HomePage = () => {
   const { products, loading } = useProduct();
-  const { addToCart } = useCart();
   const { isAuthenticated } = useAuth();
   const dispatch = useDispatch();
   const [searchParams, setSearchParams] = useSearchParams();
-
   const [activeSlide, setActiveSlide] = useState(0);
-  const [quickViewProduct, setQuickViewProduct] = useState(null);
-  const [selectedVariant, setSelectedVariant] = useState(null);
-  const [quantity, setQuantity] = useState(1);
-  const [addedToast, setAddedToast] = useState(false);
-
   const [authModal, setAuthModal] = useState(false);
   const [authTab, setAuthTab] = useState('login');
   const [email, setEmail] = useState('');
@@ -63,11 +60,17 @@ const HomePage = () => {
   const [fullName, setFullName] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [authSuccess, setAuthSuccess] = useState('');
+  const [resetStep, setResetStep] = useState('request');
+  const [resetOtp, setResetOtp] = useState('');
 
   useEffect(() => {
     if (searchParams.get('login') === 'true') {
       setAuthModal(true);
       setAuthTab('login');
+      setAuthSuccess('');
+      setResetStep('request');
+      setResetOtp('');
       const socialError = searchParams.get('social_error');
       if (socialError) setAuthError(socialError);
       searchParams.delete('login');
@@ -90,53 +93,58 @@ const HomePage = () => {
         setAuthModal(true);
       }
     }
-  }, [searchParams, setSearchParams]);
+  }, [dispatch, searchParams, setSearchParams]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      setActiveSlide((current) => (current + 1) % heroSlides.length);
-    }, 5200);
+    const timer = window.setInterval(() => setActiveSlide((current) => (current + 1) % heroSlides.length), 5200);
     return () => window.clearInterval(timer);
   }, []);
 
   const featuredProducts = useMemo(() => products.slice(0, 8), [products]);
-
-  const categories = [
-    { id: 1, name: 'Thời trang nam', image: 'https://images.unsplash.com/photo-1617137984095-74e4e5e3613f?auto=format&fit=crop&w=700&q=80' },
-    { id: 2, name: 'Thời trang nữ', image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=700&q=80' },
-    { id: 7, name: 'Đồ thể thao', image: 'https://images.unsplash.com/photo-1518310383802-640c2de311b2?auto=format&fit=crop&w=700&q=80' },
-    { id: 9, name: 'Giày & phụ kiện', image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=700&q=80' }
-  ];
-
-  const openQuickView = (product) => {
-    setQuickViewProduct(product);
-    setSelectedVariant(getLowestStockVariant(product));
-    setQuantity(1);
-    setAddedToast(false);
-  };
-
-  const handleAddToCart = () => {
-    if (!quickViewProduct || !selectedVariant || selectedVariant.stock_quantity <= 0) return;
-    const safeQuantity = Math.min(quantity, selectedVariant.stock_quantity);
-    addToCart(quickViewProduct, selectedVariant, safeQuantity);
-    setAddedToast(true);
-    setTimeout(() => setAddedToast(false), 1800);
-  };
+  const bestProduct = featuredProducts[0];
+  const slide = heroSlides[activeSlide];
 
   const handleAuthSubmit = async (event) => {
     event.preventDefault();
     setAuthLoading(true);
     setAuthError('');
+    setAuthSuccess('');
 
     try {
+      if (authTab === 'forgot') {
+        if (resetStep === 'request') {
+          const res = await forgotPasswordAPI(email);
+          setAuthSuccess(res.message || 'Nếu email tồn tại, mã OTP đã được gửi về email.');
+          setResetStep('verify');
+          setResetOtp('');
+          setPassword('');
+          setConfirmPassword('');
+          return;
+        }
+
+        if (password !== confirmPassword) {
+          setAuthError('Mật khẩu xác nhận không khớp');
+          return;
+        }
+
+        const res = await resetPasswordAPI({ email, otp: resetOtp, new_password: password });
+        setAuthSuccess(res.message || 'Đặt lại mật khẩu thành công. Bạn có thể đăng nhập.');
+        setResetStep('request');
+        setResetOtp('');
+        setPassword('');
+        setConfirmPassword('');
+        setAuthTab('login');
+        return;
+      }
+
       if (authTab === 'register' && password !== confirmPassword) {
         setAuthError('Mật khẩu xác nhận không khớp');
         return;
       }
 
       const res = authTab === 'login'
-        ? await loginAPI({ email, password })
-        : await registerAPI({ full_name: fullName, email, password });
+        ? await loginAPI({ email: email.trim().toLowerCase(), password })
+        : await registerAPI({ full_name: normalizeText(fullName), email: email.trim().toLowerCase(), password });
 
       dispatch(loginSuccess(res.data));
       setAuthModal(false);
@@ -149,396 +157,127 @@ const HomePage = () => {
 
   const handleSocialLogin = (provider) => {
     setAuthError('');
+    setAuthSuccess('');
     window.location.href = getSocialLoginUrl(provider);
   };
 
-  const slide = heroSlides[activeSlide];
+  const switchAuthTab = (tab) => {
+    setAuthTab(tab);
+    setAuthError('');
+    setAuthSuccess('');
+    setResetStep('request');
+    setResetOtp('');
+    setPassword('');
+    setConfirmPassword('');
+  };
 
   return (
-    <div className="bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-white">
+    <div className="bg-[#f6f3ee] text-slate-950 dark:bg-slate-950 dark:text-white">
       <section className="relative overflow-hidden bg-slate-950">
         {heroSlides.map((item, index) => (
-          <img
-            key={item.image}
-            src={item.image}
-            alt={item.title}
-            className={`absolute inset-0 h-full w-full object-cover transition duration-700 ${
-              index === activeSlide ? 'opacity-60 scale-100' : 'opacity-0 scale-105'
-            }`}
-          />
+          <img key={item.image} src={item.image} alt={item.title} className={`absolute inset-0 h-full w-full object-cover transition duration-700 ${index === activeSlide ? 'opacity-55 scale-100' : 'opacity-0 scale-105'}`} />
         ))}
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/82 to-slate-950/15" />
-
-        <div className="relative mx-auto grid min-h-[620px] max-w-7xl items-center px-4 py-16 sm:px-6 lg:px-8">
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/86 to-slate-950/18" />
+        <div className="relative mx-auto grid min-h-[calc(100vh-72px)] max-w-7xl items-center gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.04fr_0.96fr] lg:px-8">
           <div className="max-w-2xl text-white">
-            <div className="mb-5 inline-flex items-center gap-2 rounded-md bg-white/10 px-3 py-2 text-xs font-bold uppercase tracking-wide backdrop-blur">
-              <Sparkles className="h-4 w-4 text-premium-300" />
-              LuxuryWear 2026
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-black uppercase text-emerald-200 backdrop-blur">
+              <Sparkles className="h-4 w-4" />
+              New retail experience
             </div>
-            <h1 className="text-4xl font-black leading-tight sm:text-6xl">{slide.title}</h1>
-            <p className="mt-5 max-w-xl text-base leading-7 text-slate-200">{slide.subtitle}</p>
+            <h1 className="text-5xl font-black leading-tight sm:text-6xl lg:text-7xl">{slide.title}</h1>
+            <p className="mt-6 max-w-xl text-base leading-8 text-slate-200">{slide.subtitle}</p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link to="/products">
-                <Button size="lg">
-                  Xem sản phẩm
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-              {!isAuthenticated && (
-                <Button variant="outline" size="lg" className="border-white/40 bg-white/10 text-white hover:bg-white/20" onClick={() => setAuthModal(true)}>
-                  <User className="h-4 w-4" />
-                  Đăng nhập
-                </Button>
-              )}
+              <Link to="/products"><Button size="lg" className="bg-emerald-400 text-slate-950 hover:bg-emerald-300">Mua ngay <ArrowRight className="h-4 w-4" /></Button></Link>
+              <Link to="/events"><Button variant="outline" size="lg" className="border-white/25 bg-white/10 text-white hover:bg-white/20"><Gift className="h-4 w-4" />Săn voucher</Button></Link>
+              {!isAuthenticated && <Button variant="outline" size="lg" className="border-white/25 bg-white/10 text-white hover:bg-white/20" onClick={() => setAuthModal(true)}>Đăng nhập</Button>}
             </div>
             <div className="mt-10 flex gap-2">
-              {heroSlides.map((item, index) => (
-                <button
-                  key={item.title}
-                  onClick={() => setActiveSlide(index)}
-                  className={`h-2.5 rounded-full transition ${index === activeSlide ? 'w-10 bg-white' : 'w-2.5 bg-white/45 hover:bg-white/75'}`}
-                  aria-label={`Chuyển đến slide ${index + 1}`}
-                />
-              ))}
+              {heroSlides.map((item, index) => <button key={item.title} onClick={() => setActiveSlide(index)} className={`h-2.5 rounded-full transition ${index === activeSlide ? 'w-10 bg-emerald-300' : 'w-2.5 bg-white/45 hover:bg-white/75'}`} aria-label={`Chuyển slide ${index + 1}`} />)}
+            </div>
+          </div>
+
+          <div className="hidden lg:block">
+            <div className="overflow-hidden rounded-[2rem] border border-white/12 bg-white/10 p-4 shadow-2xl backdrop-blur-xl">
+              <div className="relative overflow-hidden rounded-[1.5rem] bg-white text-slate-950">
+                <img src={getImageUrl(bestProduct?.image_url, fallbackImage)} alt={bestProduct?.name || 'LuxuryWear'} className="aspect-[4/5] w-full object-cover object-top" />
+                <div className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1.5 text-xs font-black text-slate-950">Hot pick</div>
+                <div className="absolute inset-x-4 bottom-4 rounded-2xl bg-slate-950/86 p-4 text-white backdrop-blur">
+                  <div className="line-clamp-1 text-lg font-black">{bestProduct?.name || 'Sản phẩm nổi bật'}</div>
+                  <div className="mt-1 flex items-center justify-between text-sm text-slate-300">
+                    <span>{bestProduct ? formatPrice(bestProduct.base_price) : 'Đang cập nhật'}</span>
+                    <span className="inline-flex items-center gap-1"><Star className="h-4 w-4 fill-amber-400 text-amber-400" />{Number(bestProduct?.rating_avg || 5).toFixed(1)}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto -mt-12 max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {categories.map((category) => (
-            <Link key={category.id} to={`/products?category=${category.id}`} className="group overflow-hidden rounded-lg border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-900">
-              <div className="relative aspect-[4/3] overflow-hidden">
-                <img src={category.image} alt={category.name} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/75 to-transparent" />
-                <div className="absolute bottom-4 left-4 right-4">
-                  <h3 className="text-lg font-black text-white">{category.name}</h3>
-                  <span className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-premium-100">
-                    Xem danh mục <ArrowRight className="h-3 w-3" />
-                  </span>
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-          <div>
-            <p className="text-sm font-bold uppercase text-premium-700 dark:text-premium-300">Sản phẩm mới</p>
-            <h2 className="mt-1 text-3xl font-black text-slate-950 dark:text-white">Hàng nổi bật trong kho</h2>
-          </div>
-          <Link to="/products" className="inline-flex items-center gap-2 text-sm font-bold text-premium-700 hover:text-premium-900 dark:text-premium-300">
-            Xem tất cả <ArrowRight className="h-4 w-4" />
-          </Link>
-        </div>
-
-        {loading ? (
-          <div className="py-20"><Spinner size="lg" /></div>
-        ) : (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {featuredProducts.map((product) => (
-              <article key={product.id} className="group overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-soft dark:border-slate-800 dark:bg-slate-900">
-                <Link to={`/products/${product.id}`} className="relative block aspect-[3/4] overflow-hidden bg-slate-100 dark:bg-slate-800">
-                  <img src={getImageUrl(product.image_url, fallbackImage)} alt={product.name} className="h-full w-full object-cover object-top transition duration-500 group-hover:scale-105" />
-                  <span className="absolute left-3 top-3 rounded-md bg-white/95 px-2.5 py-1 text-[11px] font-bold uppercase text-slate-700 dark:bg-slate-950/85 dark:text-slate-200">
-                    {product.category_name || 'Thời trang'}
-                  </span>
-                  <span className="absolute bottom-3 left-3 inline-flex items-center gap-1 rounded-md bg-slate-950/80 px-2.5 py-1 text-xs font-bold text-white">
-                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                    {Number(product.rating_avg || 0).toFixed(1)}
-                  </span>
-                </Link>
-                <div className="space-y-3 p-4">
-                  <div>
-                    <Link to={`/products/${product.id}`} className="line-clamp-1 font-bold text-slate-950 hover:text-premium-700 dark:text-white dark:hover:text-premium-300">
-                      {product.name}
-                    </Link>
-                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Tồn kho: {getProductStock(product)} | {product.like_count || 0} lượt thích</p>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {product.tags?.slice(0, 2).map((tag) => (
-                        <span key={tag.id || tag.name} className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                          #{tag.name}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between border-t border-slate-100 pt-3 dark:border-slate-800">
-                    <span className="font-black text-premium-800 dark:text-premium-300">{formatPrice(product.base_price)}</span>
-                    <div className="flex items-center gap-2">
-                      <Link to={`/products/${product.id}`} className="rounded-md p-2 text-slate-600 hover:bg-slate-100 hover:text-premium-700 dark:text-slate-300 dark:hover:bg-slate-800" aria-label="Chi tiết">
-                        <Eye className="h-4 w-4" />
-                      </Link>
-                      <Button size="sm" onClick={() => openQuickView(product)}>
-                        <ShoppingBag className="h-4 w-4" />
-                        Chọn
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="border-y border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 py-10 sm:px-6 md:grid-cols-3 lg:px-8">
+      <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+        <div className="grid gap-4 md:grid-cols-3">
           {[
-            { icon: Truck, title: 'Giao hàng COD', desc: 'Tự tính phí ship theo địa chỉ tỉnh, huyện, xã/phường.' },
-            { icon: PackageCheck, title: 'Tồn kho rõ ràng', desc: 'Mỗi sản phẩm có nhiều biến thể size, màu và số lượng cụ thể.' },
-            { icon: ShieldCheck, title: 'Quản trị đầy đủ', desc: 'Admin theo dõi dashboard, sản phẩm, đơn hàng và thông báo trạng thái.' }
-          ].map((item) => (
-            <div key={item.title} className="flex gap-4">
-              <div className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-md bg-premium-50 text-premium-700 dark:bg-premium-900/35 dark:text-premium-300">
-                <item.icon className="h-5 w-5" />
-              </div>
-              <div>
-                <h3 className="font-black text-slate-950 dark:text-white">{item.title}</h3>
-                <p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">{item.desc}</p>
-              </div>
-            </div>
-          ))}
+            { icon: Truck, title: 'Giao COD theo địa chỉ', desc: 'Tính phí ship theo tỉnh, huyện, xã/phường đã lưu.' },
+            { icon: Gift, title: 'Voucher theo nhiệm vụ', desc: 'Mua 3 món, user mới, đơn lớn đều có mã riêng.' },
+            { icon: ShieldCheck, title: 'Theo dõi sau mua', desc: 'Đơn hàng, thông báo, đánh giá và bình luận rõ ràng.' }
+          ].map((item) => <div key={item.title} className="flex gap-4 rounded-3xl border border-white bg-white/76 p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"><div className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-2xl bg-slate-950 text-emerald-300 dark:bg-white dark:text-slate-950"><item.icon className="h-5 w-5" /></div><div><h3 className="font-black text-slate-950 dark:text-white">{item.title}</h3><p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">{item.desc}</p></div></div>)}
         </div>
       </section>
 
-      <Modal isOpen={!!quickViewProduct} onClose={() => setQuickViewProduct(null)} title="Xem nhanh sản phẩm" maxWidth="max-w-4xl">
-        {quickViewProduct && (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            <img src={getImageUrl(selectedVariant?.image_url || quickViewProduct.image_url, fallbackImage)} alt={quickViewProduct.name} className="aspect-[3/4] w-full rounded-lg object-cover object-top" />
-            <div className="flex flex-col justify-between gap-6">
-              <div>
-                <p className="text-xs font-bold uppercase text-premium-700">{quickViewProduct.category_name || 'Thời trang'}</p>
-                <h3 className="mt-2 text-2xl font-black text-slate-950">{quickViewProduct.name}</h3>
-                <div className="mt-3 text-2xl font-black text-premium-800">{formatPrice(quickViewProduct.base_price)}</div>
-                <p className="mt-4 text-sm leading-6 text-slate-600">
-                  {quickViewProduct.description || 'Sản phẩm thời trang dễ phối đồ, phù hợp nhiều nhu cầu sử dụng hằng ngày.'}
-                </p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {quickViewProduct.tags?.map((tag) => (
-                    <span key={tag.id || tag.name} className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">#{tag.name}</span>
-                  ))}
-                </div>
+      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-6 flex items-end justify-between gap-4">
+          <div>
+            <p className="text-sm font-black uppercase text-emerald-700 dark:text-emerald-300">Danh mục nổi bật</p>
+            <h2 className="mt-1 text-3xl font-black text-slate-950 dark:text-white">Chọn phong cách của bạn</h2>
+          </div>
+          <Link to="/products" className="hidden items-center gap-2 text-sm font-black text-slate-700 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white sm:inline-flex">Xem tất cả <ArrowRight className="h-4 w-4" /></Link>
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {categories.map((category) => <Link key={category.id} to={`/products?category=${category.id}`} className="group relative overflow-hidden rounded-3xl bg-slate-900 shadow-sm"><img src={category.image} alt={category.name} className="aspect-[4/5] h-full w-full object-cover transition duration-500 group-hover:scale-105" /><div className="absolute inset-0 bg-gradient-to-t from-slate-950/88 via-slate-950/10 to-transparent" /><div className="absolute bottom-5 left-5 right-5 text-white"><h3 className="text-2xl font-black">{category.name}</h3><p className="mt-1 text-sm text-slate-200">{category.label}</p></div></Link>)}
+        </div>
+      </section>
 
-                <div className="mt-6">
-                  <label className="text-xs font-black uppercase text-slate-700">Chọn size và màu</label>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {quickViewProduct.variants?.map((variant) => {
-                      const active = selectedVariant?.id === variant.id;
-                      const disabled = Number(variant.stock_quantity) <= 0;
-                      return (
-                        <button
-                          key={variant.id}
-                          disabled={disabled}
-                          onClick={() => {
-                            setSelectedVariant(variant);
-                            setQuantity(1);
-                          }}
-                          className={`rounded-md border px-3 py-2 text-left text-xs transition disabled:cursor-not-allowed disabled:opacity-45 ${
-                            active ? 'border-premium-700 bg-premium-50 text-premium-900' : 'border-slate-200 hover:border-slate-400'
-                          }`}
-                        >
-                          <span className="block font-black">{variant.size} - {variant.color}</span>
-                          <span className="text-slate-500">Còn {variant.stock_quantity}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
+      <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+        <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+          <div>
+            <p className="text-sm font-black uppercase text-emerald-700 dark:text-emerald-300">Đang được quan tâm</p>
+            <h2 className="mt-1 text-3xl font-black text-slate-950 dark:text-white">Sản phẩm mới trong kho</h2>
+          </div>
+          <Link to="/products" className="inline-flex items-center gap-2 text-sm font-black text-slate-700 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white">Khám phá thêm <ArrowRight className="h-4 w-4" /></Link>
+        </div>
 
-              <div className="space-y-4 border-t border-slate-100 pt-5">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-bold text-slate-700">Số lượng</span>
-                  <div className="flex items-center overflow-hidden rounded-md border border-slate-200">
-                    <button className="px-3 py-1.5 font-bold hover:bg-slate-50" onClick={() => setQuantity(Math.max(1, quantity - 1))}>-</button>
-                    <span className="min-w-10 border-x border-slate-200 px-3 py-1.5 text-center text-sm font-bold">{quantity}</span>
-                    <button className="px-3 py-1.5 font-bold hover:bg-slate-50" onClick={() => setQuantity(Math.min(selectedVariant?.stock_quantity || 1, quantity + 1))}>+</button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <Button size="lg" className="w-full" disabled={!selectedVariant || selectedVariant.stock_quantity <= 0} onClick={handleAddToCart}>
-                    <ShoppingBag className="h-5 w-5" />
-                    Thêm vào giỏ
-                  </Button>
-                  <Link to={`/products/${quickViewProduct.id}`} className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 px-5 py-3 text-base font-semibold text-slate-800 hover:bg-slate-50">
-                    <Heart className="h-5 w-5" />
-                    Xem chi tiết
-                  </Link>
-                </div>
-                {addedToast && (
-                  <div className="flex items-center justify-center gap-2 rounded-md bg-emerald-50 py-2 text-sm font-bold text-emerald-700">
-                    <Check className="h-4 w-4" />
-                    Đã thêm sản phẩm vào giỏ
-                  </div>
-                )}
-              </div>
-            </div>
+        {loading ? <div className="py-20"><Spinner size="lg" /></div> : (
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {featuredProducts.map((product) => {
+              const stock = getProductStock(product);
+              return <Link key={product.id} to={`/products/${product.id}`} className="group overflow-hidden rounded-3xl border border-white bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-soft dark:border-slate-800 dark:bg-slate-900"><div className="relative aspect-[3/4] overflow-hidden bg-slate-100 dark:bg-slate-800"><img src={getImageUrl(product.image_url, fallbackImage)} alt={product.name} className="h-full w-full object-cover object-top transition duration-500 group-hover:scale-105" /><div className="absolute left-3 top-3 rounded-full bg-white/92 px-3 py-1 text-[11px] font-black uppercase text-slate-700 dark:bg-slate-950/86 dark:text-slate-200">{product.category_name || 'Thời trang'}</div><div className="absolute bottom-3 left-3 inline-flex items-center gap-1 rounded-full bg-slate-950/82 px-3 py-1.5 text-xs font-black text-white"><Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />{Number(product.rating_avg || 0).toFixed(1)}</div></div><div className="space-y-3 p-4"><div><h3 className="line-clamp-1 font-black text-slate-950 group-hover:text-emerald-700 dark:text-white dark:group-hover:text-emerald-300">{product.name}</h3><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Còn {stock} sản phẩm · {product.like_count || 0} lượt thích</p></div><div className="flex items-center justify-between border-t border-slate-100 pt-3 dark:border-slate-800"><span className="font-black text-slate-950 dark:text-white">{formatPrice(product.base_price)}</span><span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-950 text-white group-hover:bg-emerald-500 group-hover:text-slate-950 dark:bg-white dark:text-slate-950"><ShoppingBag className="h-4 w-4" /></span></div></div></Link>;
+            })}
           </div>
         )}
-      </Modal>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
+        <div className="grid overflow-hidden rounded-[2rem] bg-slate-950 text-white shadow-soft lg:grid-cols-[0.9fr_1.1fr]">
+          <div className="p-8 sm:p-10"><div className="inline-flex items-center gap-2 rounded-full bg-emerald-400 px-3 py-1 text-xs font-black text-slate-950"><Gift className="h-4 w-4" />Voucher hub</div><h2 className="mt-5 text-3xl font-black sm:text-4xl">Hoàn thành nhiệm vụ để nhận ưu đãi tốt hơn</h2><p className="mt-3 text-sm leading-7 text-slate-300">Trang sự kiện giúp user săn mã theo hành vi mua hàng: user mới, mua nhiều sản phẩm, đơn trên 1 triệu hoặc combo đủ bộ.</p><Link to="/events" className="mt-6 inline-flex"><Button className="bg-white text-slate-950 hover:bg-slate-200">Đi săn voucher <ArrowRight className="h-4 w-4" /></Button></Link></div>
+          <div className="grid grid-cols-2 gap-3 bg-white/5 p-5 sm:p-8"><div className="rounded-3xl bg-white p-5 text-slate-950"><div className="text-sm font-black text-emerald-700">BUY3SHIP</div><div className="mt-2 text-2xl font-black">Freeship</div><p className="mt-1 text-sm text-slate-500">Mua 3 sản phẩm bất kỳ</p></div><div className="rounded-3xl bg-emerald-400 p-5 text-slate-950"><div className="text-sm font-black">MILLION30</div><div className="mt-2 text-2xl font-black">Giảm 30%</div><p className="mt-1 text-sm text-slate-800">Đơn từ 1.000.000đ</p></div><div className="rounded-3xl bg-amber-300 p-5 text-slate-950"><div className="text-sm font-black">NEW30</div><div className="mt-2 text-2xl font-black">User mới</div><p className="mt-1 text-sm text-slate-800">Quà chào mừng</p></div><div className="rounded-3xl bg-white/10 p-5 text-white"><div className="text-sm font-black text-emerald-200">STYLE25</div><div className="mt-2 text-2xl font-black">Combo</div><p className="mt-1 text-sm text-slate-300">Phối đủ bộ tiết kiệm</p></div></div>
+        </div>
+      </section>
 
       <Modal isOpen={authModal} onClose={() => setAuthModal(false)} title="">
-        <div className="relative overflow-hidden rounded-lg bg-slate-950 p-5 text-white">
-          <img
-            src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=900&q=80"
-            alt=""
-            className="absolute inset-0 h-full w-full object-cover opacity-35"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/85 to-slate-950/35" />
-          <div className="relative">
-            <p className="text-xs font-bold uppercase tracking-wide text-premium-200">LuxuryWear Account</p>
-            <h2 className="mt-2 text-2xl font-black">{authTab === 'login' ? 'Chào mừng quay lại' : 'Tạo tài khoản mua sắm'}</h2>
-            <p className="mt-2 max-w-sm text-sm leading-6 text-slate-200">
-              {authTab === 'login'
-                ? 'Đăng nhập để theo dõi đơn hàng, lưu địa chỉ giao hàng và nhận thông báo mới nhất.'
-                : 'Đăng ký tài khoản để đặt hàng nhanh hơn và quản lý lịch sử mua sắm của bạn.'}
-            </p>
-          </div>
-        </div>
-
+        <div className="relative overflow-hidden rounded-3xl bg-slate-950 p-6 text-white"><img src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=900&q=80" alt="" className="absolute inset-0 h-full w-full object-cover opacity-30" /><div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/86 to-slate-950/35" /><div className="relative"><p className="text-xs font-black uppercase text-emerald-200">LuxuryWear Account</p><h2 className="mt-2 text-2xl font-black">{authTab === 'forgot' ? 'Khôi phục mật khẩu' : authTab === 'login' ? 'Chào mừng quay lại' : 'Tạo tài khoản mua sắm'}</h2><p className="mt-2 max-w-sm text-sm leading-6 text-slate-200">{authTab === 'forgot' ? 'Nhập email để nhận mã OTP 6 số, sau đó tạo mật khẩu mới.' : 'Theo dõi đơn hàng, lưu địa chỉ, nhận thông báo và săn voucher cá nhân.'}</p></div></div>
         <form onSubmit={handleAuthSubmit} className="mt-5 space-y-4">
-          <div className="grid grid-cols-2 rounded-lg bg-slate-100 p-1 dark:bg-slate-950">
-            <button
-              type="button"
-              onClick={() => {
-                setAuthTab('login');
-                setAuthError('');
-              }}
-              className={`rounded-md px-3 py-2.5 text-sm font-black transition ${
-                authTab === 'login' ? 'bg-white text-slate-950 shadow-sm dark:bg-slate-800 dark:text-white' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
-              }`}
-            >
-              Đăng nhập
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setAuthTab('register');
-                setAuthError('');
-              }}
-              className={`rounded-md px-3 py-2.5 text-sm font-black transition ${
-                authTab === 'register' ? 'bg-white text-slate-950 shadow-sm dark:bg-slate-800 dark:text-white' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
-              }`}
-            >
-              Đăng ký
-            </button>
-          </div>
-
-          {authError && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-              {authError}
-            </div>
-          )}
-
-          <div className="grid gap-2 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => handleSocialLogin('google')}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800 transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-800"
-            >
-              <SocialIcon provider="google" />
-              Google
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSocialLogin('facebook')}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800 transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-800"
-            >
-              <SocialIcon provider="facebook" />
-              Facebook
-            </button>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
-            <span className="text-xs font-bold uppercase text-slate-400">hoặc dùng email</span>
-            <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
-          </div>
-
-          {authTab === 'register' && (
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-black uppercase text-slate-500 dark:text-slate-400">Họ và tên</span>
-              <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 focus-within:border-premium-600 focus-within:ring-2 focus-within:ring-premium-100 dark:border-slate-700 dark:bg-slate-950 dark:focus-within:ring-premium-900/40">
-                <User className="h-5 w-5 text-slate-400" />
-                <input
-                  required
-                  value={fullName}
-                  onChange={(event) => setFullName(event.target.value)}
-                  placeholder="Ví dụ: Nguyễn Văn A"
-                  className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400 dark:text-white"
-                />
-              </div>
-            </label>
-          )}
-
-          <label className="block">
-            <span className="mb-1.5 block text-xs font-black uppercase text-slate-500 dark:text-slate-400">Email</span>
-            <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 focus-within:border-premium-600 focus-within:ring-2 focus-within:ring-premium-100 dark:border-slate-700 dark:bg-slate-950 dark:focus-within:ring-premium-900/40">
-              <Mail className="h-5 w-5 text-slate-400" />
-              <input
-                required
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="you@example.com"
-                autoComplete="email"
-                className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400 dark:text-white"
-              />
-            </div>
-          </label>
-
-          <label className="block">
-            <span className="mb-1.5 block text-xs font-black uppercase text-slate-500 dark:text-slate-400">Mật khẩu</span>
-            <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 focus-within:border-premium-600 focus-within:ring-2 focus-within:ring-premium-100 dark:border-slate-700 dark:bg-slate-950 dark:focus-within:ring-premium-900/40">
-              <Lock className="h-5 w-5 text-slate-400" />
-              <input
-                required
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="Nhập mật khẩu"
-                autoComplete={authTab === 'login' ? 'current-password' : 'new-password'}
-                className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400 dark:text-white"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((visible) => !visible)}
-                className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-white"
-                aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </label>
-
-          {authTab === 'register' && (
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-black uppercase text-slate-500 dark:text-slate-400">Xác nhận mật khẩu</span>
-              <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 focus-within:border-premium-600 focus-within:ring-2 focus-within:ring-premium-100 dark:border-slate-700 dark:bg-slate-950 dark:focus-within:ring-premium-900/40">
-                <Lock className="h-5 w-5 text-slate-400" />
-                <input
-                  required
-                  type={showPassword ? 'text' : 'password'}
-                  value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                  placeholder="Nhập lại mật khẩu"
-                  autoComplete="new-password"
-                  className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400 dark:text-white"
-                />
-              </div>
-            </label>
-          )}
-
-          <Button type="submit" size="lg" className="w-full" disabled={authLoading}>
-            {authLoading ? <Spinner size="sm" /> : authTab === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'}
-          </Button>
-
-          <p className="text-center text-xs leading-5 text-slate-500 dark:text-slate-400">
-            Bằng việc tiếp tục, bạn đồng ý sử dụng tài khoản để quản lý đơn hàng, địa chỉ giao hàng và thông báo từ cửa hàng.
-          </p>
+          <div className="grid grid-cols-2 rounded-2xl bg-slate-100 p-1 dark:bg-slate-950"><button type="button" onClick={() => switchAuthTab('login')} className={`rounded-xl px-3 py-2.5 text-sm font-black transition ${authTab === 'login' ? 'bg-white text-slate-950 shadow-sm dark:bg-slate-800 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>Đăng nhập</button><button type="button" onClick={() => switchAuthTab('register')} className={`rounded-xl px-3 py-2.5 text-sm font-black transition ${authTab === 'register' ? 'bg-white text-slate-950 shadow-sm dark:bg-slate-800 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>Đăng ký</button></div>
+          {authError && <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700 dark:border-rose-900 dark:bg-rose-950/35 dark:text-rose-200">{authError}</div>}
+          {authSuccess && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/35 dark:text-emerald-200">{authSuccess}</div>}
+          {authTab !== 'forgot' && <div className="grid gap-2 sm:grid-cols-2"><button type="button" onClick={() => handleSocialLogin('google')} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-white"><SocialIcon provider="google" />Google</button><button type="button" onClick={() => handleSocialLogin('facebook')} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-white"><SocialIcon provider="facebook" />Facebook</button></div>}
+          {authTab === 'register' && <label className="block"><span className="mb-1.5 block text-xs font-black uppercase text-slate-500 dark:text-slate-400">Họ và tên</span><div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 focus-within:border-emerald-500 dark:border-slate-700 dark:bg-slate-950"><User className="h-5 w-5 text-slate-400" /><input required value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Ví dụ: Nguyễn Văn A" className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none dark:text-white" /></div></label>}
+          <label className="block"><span className="mb-1.5 block text-xs font-black uppercase text-slate-500 dark:text-slate-400">Email</span><div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 focus-within:border-emerald-500 dark:border-slate-700 dark:bg-slate-950"><Mail className="h-5 w-5 text-slate-400" /><input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none dark:text-white" /></div></label>
+          {authTab === 'forgot' && resetStep === 'verify' && <label className="block"><span className="mb-1.5 block text-xs font-black uppercase text-slate-500 dark:text-slate-400">Mã OTP</span><div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 focus-within:border-emerald-500 dark:border-slate-700 dark:bg-slate-950"><KeyRound className="h-5 w-5 text-slate-400" /><input required value={resetOtp} onChange={(event) => setResetOtp(event.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="Nhập 6 số OTP" inputMode="numeric" className="w-full bg-transparent text-sm font-semibold tracking-[0.35em] text-slate-900 outline-none dark:text-white" /></div></label>}
+          {(authTab !== 'forgot' || resetStep === 'verify') && <label className="block"><span className="mb-1.5 block text-xs font-black uppercase text-slate-500 dark:text-slate-400">{authTab === 'forgot' ? 'Mật khẩu mới' : 'Mật khẩu'}</span><div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 focus-within:border-emerald-500 dark:border-slate-700 dark:bg-slate-950"><Lock className="h-5 w-5 text-slate-400" /><input required type={showPassword ? 'text' : 'password'} value={password} onChange={(event) => setPassword(event.target.value)} placeholder={authTab === 'forgot' ? 'Tạo mật khẩu mới' : 'Nhập mật khẩu'} className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none dark:text-white" /><button type="button" onClick={() => setShowPassword((visible) => !visible)} className="text-slate-400">{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div></label>}
+          {authTab === 'login' && <button type="button" onClick={() => switchAuthTab('forgot')} className="-mt-2 inline-flex text-sm font-black text-emerald-700 hover:text-emerald-800 dark:text-emerald-300 dark:hover:text-emerald-200">Quên mật khẩu?</button>}
+          {authTab === 'forgot' && <button type="button" onClick={() => switchAuthTab('login')} className="-mt-2 inline-flex text-sm font-black text-slate-600 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white">Quay lại đăng nhập</button>}
+          {(authTab === 'register' || (authTab === 'forgot' && resetStep === 'verify')) && <label className="block"><span className="mb-1.5 block text-xs font-black uppercase text-slate-500 dark:text-slate-400">Xác nhận mật khẩu</span><div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 focus-within:border-emerald-500 dark:border-slate-700 dark:bg-slate-950"><Lock className="h-5 w-5 text-slate-400" /><input required type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Nhập lại mật khẩu" className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none dark:text-white" /></div></label>}
+          <Button type="submit" size="lg" className="w-full" disabled={authLoading}>{authLoading ? <Spinner size="sm" /> : authTab === 'forgot' ? (resetStep === 'request' ? 'Gửi mã OTP' : 'Đặt lại mật khẩu') : authTab === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'}</Button>
         </form>
       </Modal>
     </div>
@@ -546,3 +285,4 @@ const HomePage = () => {
 };
 
 export default HomePage;
+
