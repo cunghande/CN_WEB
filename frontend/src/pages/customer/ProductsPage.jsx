@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Search, SlidersHorizontal, Star, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MoreHorizontal, Search, SlidersHorizontal, Star, X } from 'lucide-react';
 import { useDispatch } from 'react-redux';
 import useProduct from '../../hooks/useProduct.js';
 import Sidebar from '../../components/layout/Sidebar.jsx';
@@ -67,15 +67,6 @@ const ProductsPage = () => {
     setMobileFilters(false);
   };
 
-  const goToPage = (page) => {
-    const nextPage = Math.max(1, Math.min(totalPages, page));
-    setCurrentPage(nextPage);
-    const nextParams = new URLSearchParams(searchParams);
-    if (nextPage === 1) nextParams.delete('page');
-    else nextParams.set('page', String(nextPage));
-    setSearchParams(nextParams, { replace: true });
-  };
-
   const filteredProducts = useMemo(() => {
     const keyword = searchTerm.trim().toLowerCase();
     const list = products.filter((product) => {
@@ -103,15 +94,28 @@ const ProductsPage = () => {
   }, [products, searchTerm, priceRange, stockFilter, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
-  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
   const paginatedProducts = filteredProducts.slice((safeCurrentPage - 1) * PAGE_SIZE, safeCurrentPage * PAGE_SIZE);
 
-  const pageNumbers = useMemo(() => {
-    const pages = [];
-    const start = Math.max(1, safeCurrentPage - 2);
-    const end = Math.min(totalPages, safeCurrentPage + 2);
-    for (let page = start; page <= end; page += 1) pages.push(page);
-    return pages;
+  const goToPage = (page) => {
+    const nextPage = Math.max(1, Math.min(totalPages, Number(page) || 1));
+    setCurrentPage(nextPage);
+    const nextParams = new URLSearchParams(searchParams);
+    if (nextPage === 1) nextParams.delete('page');
+    else nextParams.set('page', String(nextPage));
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const paginationItems = useMemo(() => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, index) => index + 1);
+    const items = [1];
+    const start = Math.max(2, safeCurrentPage - 1);
+    const end = Math.min(totalPages - 1, safeCurrentPage + 1);
+    if (start > 2) items.push('start-ellipsis');
+    for (let page = start; page <= end; page += 1) items.push(page);
+    if (end < totalPages - 1) items.push('end-ellipsis');
+    items.push(totalPages);
+    return items;
   }, [safeCurrentPage, totalPages]);
 
   const filterControls = (
@@ -214,41 +218,35 @@ const ProductsPage = () => {
             )}
 
             {!loading && !error && filteredProducts.length > PAGE_SIZE && (
-              <div className="flex flex-col items-center justify-between gap-4 rounded-3xl border border-white bg-white/82 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:flex-row">
-                <div className="text-sm font-bold text-slate-500 dark:text-slate-400">
-                  Hiển thị {(safeCurrentPage - 1) * PAGE_SIZE + 1}-{Math.min(safeCurrentPage * PAGE_SIZE, filteredProducts.length)} trong {filteredProducts.length} sản phẩm
+              <div className="rounded-3xl border border-white bg-white/88 p-4 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                  <div>
+                    <div className="text-sm font-black text-slate-950 dark:text-white">Trang {safeCurrentPage} / {totalPages}</div>
+                    <div className="mt-1 text-sm font-bold text-slate-500 dark:text-slate-400">Hiển thị {(safeCurrentPage - 1) * PAGE_SIZE + 1}-{Math.min(safeCurrentPage * PAGE_SIZE, filteredProducts.length)} trong {filteredProducts.length} sản phẩm</div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button type="button" onClick={() => goToPage(1)} disabled={safeCurrentPage === 1} title="Về trang đầu" className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:border-emerald-500/50 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-200"><ChevronsLeft className="h-4 w-4" /></button>
+                    <button type="button" onClick={() => goToPage(safeCurrentPage - 1)} disabled={safeCurrentPage === 1} title="Trang trước" className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:border-emerald-500/50 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-200"><ChevronLeft className="h-4 w-4" /><span className="hidden sm:inline">Trước</span></button>
+
+                    <div className="flex max-w-full items-center gap-1 overflow-x-auto rounded-2xl bg-slate-100 p-1 dark:bg-slate-950">
+                      {paginationItems.map((item) => (
+                        typeof item === 'number' ? (
+                          <button key={item} type="button" onClick={() => goToPage(item)} aria-current={item === safeCurrentPage ? 'page' : undefined} className={`grid h-9 min-w-9 place-items-center rounded-xl px-3 text-sm font-black transition ${item === safeCurrentPage ? 'bg-slate-950 text-white shadow-sm dark:bg-white dark:text-slate-950' : 'text-slate-600 hover:bg-white hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'}`}>{item}</button>
+                        ) : (
+                          <span key={item} className="grid h-9 min-w-8 place-items-center text-slate-400 dark:text-slate-500"><MoreHorizontal className="h-4 w-4" /></span>
+                        )
+                      ))}
+                    </div>
+
+                    <button type="button" onClick={() => goToPage(safeCurrentPage + 1)} disabled={safeCurrentPage === totalPages} title="Trang sau" className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:border-emerald-500/50 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-200"><span className="hidden sm:inline">Sau</span><ChevronRight className="h-4 w-4" /></button>
+                    <button type="button" onClick={() => goToPage(totalPages)} disabled={safeCurrentPage === totalPages} title="Đến trang cuối" className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:border-emerald-500/50 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-200"><ChevronsRight className="h-4 w-4" /></button>
+                  </div>
                 </div>
-                <div className="flex flex-wrap items-center justify-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => goToPage(safeCurrentPage - 1)}
-                    disabled={safeCurrentPage === 1}
-                    className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800"
-                  >
-                    Trước
-                  </button>
-                  {pageNumbers.map((page) => (
-                    <button
-                      key={page}
-                      type="button"
-                      onClick={() => goToPage(page)}
-                      className={`grid h-10 min-w-10 place-items-center rounded-full px-3 text-sm font-black transition ${
-                        page === safeCurrentPage
-                          ? 'bg-slate-950 text-white dark:bg-white dark:text-slate-950'
-                          : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => goToPage(safeCurrentPage + 1)}
-                    disabled={safeCurrentPage === totalPages}
-                    className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800"
-                  >
-                    Sau
-                  </button>
+
+                <div className="mt-4 flex flex-col gap-2 border-t border-slate-100 pt-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-end">
+                  <label htmlFor="product-page-jump" className="text-sm font-bold text-slate-500 dark:text-slate-400">Đi đến trang</label>
+                  <input id="product-page-jump" type="number" min="1" max={totalPages} value={safeCurrentPage} onChange={(event) => goToPage(Number(event.target.value || 1))} className="h-10 w-28 rounded-xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
                 </div>
               </div>
             )}
