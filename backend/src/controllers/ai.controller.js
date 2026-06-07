@@ -9,7 +9,10 @@ const PRODUCT_INTENTS = new Set(['styling', 'search', 'size']);
 const PRIORITY_COUPON_CODES = ['WELCOME10', 'SALE20', 'FREESHIP', 'SHIP50'];
 
 const normalize = (value) => String(value || '').toLowerCase().normalize('NFC');
-const stripVietnameseMarks = (value) => normalize(value).normalize('NFD').replace(/\p{Diacritic}/gu, '');
+const stripVietnameseMarks = (value) => normalize(value)
+  .normalize('NFD')
+  .replace(/\p{Diacritic}/gu, '')
+  .replace(/đ/g, 'd');
 
 const compactProduct = (product) => {
   const variants = product.variants || [];
@@ -53,10 +56,10 @@ const inferIntent = (message) => {
   const plainText = stripVietnameseMarks(text);
   const compactText = plainText.replace(/[!?.。]+/g, '').replace(/\s+/g, ' ').trim();
 
-  if (/^(hi|hello|hey|alo|chao|xin chao|shop oi|bot oi|ad oi)$/.test(compactText)) return 'greeting';
+  if (/^(hi|hello|hey|alo|chao|xin chao|shop oi|bot oi|ad oi)( shop)?$/.test(compactText)) return 'greeting';
   if (/voucher|ma giam|ma giam gia|khuyen mai|coupon|freeship|free ship|san ma|giam gia|uu dai/.test(plainText)) return 'voucher';
   if (/doi tra|bao hanh|giao hang|phi ship|van chuyen|cod|thanh toan|dia chi/.test(plainText)) return 'policy';
-  if (/size|co|vua|cao|nang|kg|m\d/.test(plainText)) return 'size';
+  if (/\b(size|co ao|co quan|chon co|vua size|cao|nang|kg|m\d)\b/.test(plainText)) return 'size';
   if (/phoi|outfit|mac|di choi|di lam|du tiec|hen ho|style|phong cach/.test(plainText)) return 'styling';
   if (/tim|kiem|co.*khong|mua|duoi|tren|gia|bao nhieu|con hang/.test(plainText)) return 'search';
 
