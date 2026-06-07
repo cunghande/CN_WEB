@@ -9,7 +9,8 @@
     "dev": "nodemon server.js",
     "db:migrate": "node scripts/run-database-files.js migrate",
     "db:seed": "node scripts/run-database-files.js seed",
-    "db:setup": "node scripts/run-database-files.js all"
+    "db:setup": "node scripts/run-database-files.js all",
+    "db:seed:large": "node scripts/seed-large-products.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
