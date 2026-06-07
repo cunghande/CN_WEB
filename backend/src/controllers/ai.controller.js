@@ -8,11 +8,71 @@ const MAX_PRODUCT_CONTEXT = 35;
 const PRODUCT_INTENTS = new Set(['styling', 'search', 'size']);
 const PRIORITY_COUPON_CODES = ['WELCOME10', 'SALE20', 'FREESHIP', 'SHIP50'];
 
+const PRODUCT_TYPE_RULES = [
+  { key: 'jacket', label: 'áo khoác', includes: ['ao khoac', 'khoac', 'jacket', 'blazer'], excludes: ['giay', 'dep', 'tui', 'mu', 'non', 'that lung', 'vi ', 'phu kien'] },
+  { key: 'shirt', label: 'áo sơ mi', includes: ['ao so mi', 'so mi', 'shirt'], excludes: ['giay', 'dep', 'tui', 'mu', 'non', 'quan'] },
+  { key: 'tshirt', label: 'áo thun', includes: ['ao thun', 't shirt', 'tshirt', 'tee'], excludes: ['giay', 'dep', 'tui', 'mu', 'non', 'quan'] },
+  { key: 'top', label: 'áo', includes: ['ao ', 'ao nam', 'ao nu'], excludes: ['giay', 'dep', 'tui', 'mu', 'non', 'quan'] },
+  { key: 'jeans', label: 'quần jean', includes: ['quan jean', 'jean', 'denim'], excludes: ['giay', 'dep', 'ao ', 'tui', 'mu', 'non'] },
+  { key: 'pants', label: 'quần', includes: ['quan ', 'quan nam', 'quan nu', 'pants'], excludes: ['giay', 'dep', 'ao ', 'tui', 'mu', 'non'] },
+  { key: 'dress', label: 'váy/đầm', includes: ['vay', 'dam', 'dress'], excludes: ['giay', 'dep', 'ao ', 'quan', 'tui'] },
+  { key: 'high_heels', label: 'giày cao gót', includes: ['giay cao got', 'cao got'], excludes: ['sneaker', 'canvas', 'boots', 'ao ', 'quan', 'vay', 'dam', 'tui'] },
+  { key: 'shoe', label: 'giày', includes: ['giay', 'sneaker', 'cao got', 'boots'], excludes: ['ao ', 'quan', 'vay', 'dam', 'tui'] },
+  { key: 'bag', label: 'túi', includes: ['tui', 'bag'], excludes: ['ao ', 'quan', 'giay', 'dep'] }
+];
+
+const COLOR_WORDS = ['den', 'trang', 'xanh', 'do', 'hong', 'be', 'nau', 'xam', 'kem', 'vang', 'tim'];
+const GENDER_WORDS = [
+  { key: 'male', words: ['nam', 'boy', 'men'] },
+  { key: 'female', words: ['nu', 'girl', 'women'] },
+  { key: 'unisex', words: ['unisex'] }
+];
+
 const normalize = (value) => String(value || '').toLowerCase().normalize('NFC');
-const stripVietnameseMarks = (value) => normalize(value)
+const plain = (value) => normalize(value)
   .normalize('NFD')
   .replace(/\p{Diacritic}/gu, '')
   .replace(/đ/g, 'd');
+
+const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const hasKeyword = (text, keyword) => new RegExp(`(^|\\s)${escapeRegex(keyword.trim())}(?=\\s|$)`).test(text);
+
+const productText = (product) => plain([
+  product.name,
+  product.category_name,
+  product.description,
+  ...(product.tags || []).map((tag) => tag.name),
+  ...(product.variants || []).map((variant) => `${variant.color} ${variant.size}`)
+].join(' '));
+
+const parseBudget = (text) => {
+  const compact = plain(text).replace(/\s+/g, '');
+  const kMatch = compact.match(/(?:duoi|toi da|max|tam|khoang)?(\d{2,4})k\b/);
+  if (kMatch) return Number(kMatch[1]) * 1000;
+
+  const millionMatch = compact.match(/(\d+(?:[,.]\d+)?)tr(?:ieu)?\b/);
+  if (millionMatch) return Number(millionMatch[1].replace(',', '.')) * 1000000;
+
+  const vndMatch = compact.match(/(\d{5,9})(?:d|vnd)?\b/);
+  if (vndMatch) return Number(vndMatch[1]);
+
+  return null;
+};
+
+const parseConstraints = (message) => {
+  const text = ` ${plain(message).replace(/\s+/g, ' ')} `;
+  const productType = PRODUCT_TYPE_RULES.find((rule) => rule.includes.some((keyword) => hasKeyword(text, keyword)));
+  const colors = COLOR_WORDS.filter((color) => text.includes(` ${color} `));
+  const gender = GENDER_WORDS.find((group) => group.words.some((word) => text.includes(` ${word} `)))?.key || null;
+
+  return {
+    text,
+    budget: parseBudget(message),
+    productType,
+    colors,
+    gender
+  };
+};
 
 const compactProduct = (product) => {
   const variants = product.variants || [];
@@ -52,39 +112,76 @@ const compactCoupon = (coupon) => ({
 });
 
 const inferIntent = (message) => {
-  const text = normalize(message);
-  const plainText = stripVietnameseMarks(text);
-  const compactText = plainText.replace(/[!?.。]+/g, '').replace(/\s+/g, ' ').trim();
+  const text = plain(message);
+  const compactText = text.replace(/[!?.。]+/g, '').replace(/\s+/g, ' ').trim();
+  const constraints = parseConstraints(message);
 
   if (/^(hi|hello|hey|alo|chao|xin chao|shop oi|bot oi|ad oi)( shop)?$/.test(compactText)) return 'greeting';
-  if (/voucher|ma giam|ma giam gia|khuyen mai|coupon|freeship|free ship|san ma|giam gia|uu dai/.test(plainText)) return 'voucher';
-  if (/doi tra|bao hanh|giao hang|phi ship|van chuyen|cod|thanh toan|dia chi/.test(plainText)) return 'policy';
-  if (/\b(size|co ao|co quan|chon co|vua size|cao|nang|kg|m\d)\b/.test(plainText)) return 'size';
-  if (/phoi|outfit|mac|di choi|di lam|du tiec|hen ho|style|phong cach/.test(plainText)) return 'styling';
-  if (/tim|kiem|co.*khong|mua|duoi|tren|gia|bao nhieu|con hang/.test(plainText)) return 'search';
+  if (/voucher|ma giam|ma giam gia|khuyen mai|coupon|freeship|free ship|san ma|giam gia|uu dai/.test(text)) return 'voucher';
+  if (/doi tra|bao hanh|giao hang|phi ship|van chuyen|cod|thanh toan|dia chi/.test(text)) return 'policy';
+  if (/\b(size|co ao|co quan|chon co|vua size|mac size|kg|m\d)\b/.test(text)) return 'size';
+  if (/phoi|outfit|tu van|goi y|mac|di choi|di lam|du tiec|hen ho|style|phong cach/.test(text)) return 'styling';
+  if (/tim|kiem|co.*khong|mua|duoi|tren|gia|bao nhieu|con hang/.test(text)) return 'search';
+  if (constraints.productType || constraints.budget) return 'search';
 
   return 'general';
 };
 
+const scoreProduct = (product, words, constraints) => {
+  const text = productText(product);
+  const price = Number(product.base_price || 0);
+  let score = words.filter((word) => text.includes(word)).length;
+
+  if (constraints.productType) {
+    const paddedText = ` ${text.replace(/\s+/g, ' ')} `;
+    const hasType = constraints.productType.includes.some((keyword) => hasKeyword(paddedText, keyword));
+    const hasExcludedType = constraints.productType.excludes.some((keyword) => hasKeyword(paddedText, keyword));
+    if (!hasType || hasExcludedType) return null;
+    score += 50;
+  }
+
+  if (constraints.budget) {
+    if (price > constraints.budget) return null;
+    score += 20 + Math.max(0, 10 - Math.floor((constraints.budget - price) / 100000));
+  }
+
+  if (constraints.colors.length > 0) {
+    const matchedColors = constraints.colors.filter((color) => text.includes(color));
+    if (matchedColors.length === 0) score -= 10;
+    score += matchedColors.length * 8;
+  }
+
+  if (constraints.gender) {
+    if (text.includes(constraints.gender === 'male' ? 'nam' : constraints.gender === 'female' ? 'nu' : 'unisex')) score += 8;
+  }
+
+  score += Math.min(5, Number(product.average_rating || 0));
+  score += Math.min(3, Number(product.like_count || 0) / 5);
+  return score;
+};
+
 const selectRelevantProducts = (products, message) => {
-  const words = stripVietnameseMarks(message).split(/\s+/).map((word) => word.trim()).filter((word) => word.length >= 2);
+  const constraints = parseConstraints(message);
+  const words = constraints.text.split(/\s+/).map((word) => word.trim()).filter((word) => word.length >= 2);
 
-  return products
+  const ranked = products
+    .map((product) => ({ product, score: scoreProduct(product, words, constraints) }))
+    .filter((item) => item.score !== null)
+    .sort((a, b) => b.score - a.score || Number(a.product.base_price || 0) - Number(b.product.base_price || 0));
+
+  if (ranked.length === 0 && (constraints.productType || constraints.budget)) {
+    return [];
+  }
+
+  const fallbackRanked = ranked.length > 0 ? ranked : products
     .map((product) => {
-      const searchableText = stripVietnameseMarks([
-        product.name,
-        product.category_name,
-        product.description,
-        ...(product.tags || []).map((tag) => tag.name),
-        ...(product.variants || []).map((variant) => `${variant.color} ${variant.size}`)
-      ].join(' '));
-
-      const score = words.filter((word) => searchableText.includes(word)).length;
+      const text = productText(product);
+      const score = words.filter((word) => text.includes(word)).length;
       return { product, score };
     })
-    .sort((a, b) => b.score - a.score || Number(b.product.like_count || 0) - Number(a.product.like_count || 0))
-    .slice(0, MAX_PRODUCT_CONTEXT)
-    .map((item) => compactProduct(item.product));
+    .sort((a, b) => b.score - a.score || Number(b.product.like_count || 0) - Number(a.product.like_count || 0));
+
+  return fallbackRanked.slice(0, MAX_PRODUCT_CONTEXT).map((item) => compactProduct(item.product));
 };
 
 const buildSuggestedQueries = (products, message) => {
@@ -99,12 +196,13 @@ const buildSuggestedQueries = (products, message) => {
 };
 
 const makeProductReason = (product, message) => {
-  const text = stripVietnameseMarks(message);
+  const constraints = parseConstraints(message);
   const hints = [];
-  if (product.category) hints.push(product.category);
-  const matchedColor = product.colors?.find((color) => text.includes(stripVietnameseMarks(color)));
+  if (constraints.productType) hints.push(`đúng nhóm ${constraints.productType.label}`);
+  if (constraints.budget && product.price <= constraints.budget) hints.push(`trong ngân sách ${constraints.budget.toLocaleString('vi-VN')}đ`);
+  const matchedColor = product.colors?.find((color) => constraints.colors.includes(plain(color)));
   if (matchedColor) hints.push(`có màu ${matchedColor}`);
-  if (product.price) hints.push(`giá ${Number(product.price).toLocaleString('vi-VN')}đ`);
+  if (product.category && hints.length === 0) hints.push(product.category);
 
   return hints.length > 0
     ? `Phù hợp vì ${hints.join(', ')}.`
@@ -118,6 +216,8 @@ Hãy trả lời tự nhiên như nhân viên tư vấn thân thiện, không m�
 Quy tắc bắt buộc:
 - Luôn trả lời bằng tiếng Việt.
 - Tôn trọng đúng ý định hiện tại, không tự lái câu chuyện sang sản phẩm nếu khách không hỏi sản phẩm.
+- Chỉ tư vấn sản phẩm trong PRODUCT_CONTEXT, không tự bịa sản phẩm ngoài danh sách.
+- Nếu khách nêu ngân sách, chỉ nói các sản phẩm được hệ thống lọc là trong ngân sách.
 - Nếu intent là greeting: chào lại ngắn gọn, hỏi khách cần tìm đồ, voucher hay đơn hàng; không gợi ý sản phẩm cụ thể.
 - Nếu intent là voucher: giải thích voucher dựa trên COUPON_CONTEXT, nhắc khách vào trang "Săn voucher" hoặc giỏ hàng để áp mã; không tư vấn quần áo.
 - Nếu intent là policy: trả lời thận trọng, không bịa chính sách chi tiết ngoài dữ liệu có trong prompt.
@@ -168,12 +268,18 @@ const buildLocalFallbackReply = (message, intent, products, coupons) => {
     return 'Bạn cho mình thêm chiều cao, cân nặng và form mặc thích rộng hay vừa nhé. Trước mắt mình gợi ý vài sản phẩm có size và tồn kho dễ chọn bên dưới.';
   }
   if (intent === 'search') {
+    if (products.length === 0) {
+      return 'Mình chưa thấy sản phẩm nào khớp đúng loại hoặc ngân sách bạn đưa ra. Bạn thử nới ngân sách, đổi màu, hoặc dùng từ khóa rộng hơn một chút nhé.';
+    }
     const firstCategory = products[0]?.category || 'sản phẩm phù hợp';
-    return `Mình đã lọc nhanh các ${firstCategory} gần với nhu cầu của bạn. Bạn có thể bấm vào từng sản phẩm để xem màu, size và tồn kho chi tiết.`;
+    return `Mình đã lọc các ${firstCategory} sát với nhu cầu và ngân sách của bạn. Bạn bấm vào từng sản phẩm để xem màu, size và tồn kho chi tiết nhé.`;
   }
   if (intent === 'styling') {
+    if (products.length === 0) {
+      return 'Mình chưa tìm thấy sản phẩm đủ khớp để phối theo yêu cầu này. Bạn thử nới ngân sách hoặc mô tả rộng hơn, ví dụ “áo khoác đi chơi dưới 900k”.';
+    }
     const firstCategory = products[0]?.category || 'sản phẩm phù hợp';
-    return `Mình gợi ý bạn bắt đầu với ${firstCategory}, sau đó phối thêm item cùng tông màu để outfit gọn và dễ mặc hơn. Một vài sản phẩm phù hợp đang ở bên dưới.`;
+    return `Mình gợi ý bắt đầu với ${firstCategory}, ưu tiên các món đúng ngân sách và đúng nhóm sản phẩm bạn hỏi. Một vài lựa chọn phù hợp đang ở bên dưới.`;
   }
   return 'Mình nghe đây. Bạn có thể hỏi mình về cách phối đồ, tìm sản phẩm, chọn size, voucher đang có hoặc thông tin đơn hàng trên LuxuryWear.';
 };
