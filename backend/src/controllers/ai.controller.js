@@ -1,5 +1,5 @@
 import Product from '../models/Product.model.js';
-import { generateWithGeminiFallback } from '../services/geminiService.js';
+import { generateWithOpenRouterFallback } from '../services/openRouterService.js';
 import { sendResponse } from '../utils/helpers.js';
 
 const MAX_HISTORY_MESSAGES = 8;
@@ -25,49 +25,29 @@ const compactProduct = (product) => {
 };
 
 const selectRelevantProducts = (products, message) => {
-  const keyword = String(message || '').toLowerCase();
-  const scored = products.map((product) => {
-    const text = [
-      product.name,
-      product.category_name,
-      product.description,
-      ...(product.tags || []).map((tag) => tag.name),
-      ...(product.variants || []).map((variant) => `${variant.color} ${variant.size}`)
-    ].join(' ').toLowerCase();
+  const words = String(message || '')
+    .toLowerCase()
+    .split(/\s+/)
+    .map((word) => word.trim())
+    .filter((word) => word.length >= 2);
 
-    const score = keyword.split(/\s+/).filter((word) => word.length >= 2 && text.includes(word)).length;
-    return { product, score };
-  });
+  return products
+    .map((product) => {
+      const searchableText = [
+        product.name,
+        product.category_name,
+        product.description,
+        ...(product.tags || []).map((tag) => tag.name),
+        ...(product.variants || []).map((variant) => `${variant.color} ${variant.size}`)
+      ].join(' ').toLowerCase();
 
-  const relevant = scored
+      const score = words.filter((word) => searchableText.includes(word)).length;
+      return { product, score };
+    })
     .sort((a, b) => b.score - a.score || Number(b.product.like_count || 0) - Number(a.product.like_count || 0))
     .slice(0, MAX_PRODUCT_CONTEXT)
     .map((item) => compactProduct(item.product));
-
-  return relevant;
 };
-
-const buildStylistPrompt = ({ message, history, products }) => `
-Bạn là AI stylist và trợ lý chăm sóc khách hàng cho website thời trang LuxuryWear.
-Nhiệm vụ:
-- Tư vấn chọn đồ, phối đồ, size, màu sắc theo nhu cầu khách.
-- Tìm sản phẩm phù hợp trong danh sách sản phẩm được cung cấp.
-- Chỉ gợi ý sản phẩm có trong PRODUCT_CONTEXT.
-- Nếu khách hỏi ngoài thời trang/mua hàng, trả lời ngắn và kéo về nhu cầu mua sắm.
-- Trả lời bằng tiếng Việt tự nhiên, rõ ràng, không bịa chính sách.
-- Chỉ viết 2 câu ngắn, tối đa 280 ký tự.
-- Không liệt kê tên sản phẩm chi tiết vì hệ thống sẽ hiển thị sản phẩm riêng bên dưới.
-- Không trả JSON, không markdown code block.
-
-CHAT_HISTORY:
-${JSON.stringify(history.slice(-MAX_HISTORY_MESSAGES))}
-
-PRODUCT_CONTEXT:
-${JSON.stringify(products)}
-
-CUSTOMER_MESSAGE:
-${message}
-`;
 
 const inferIntent = (message) => {
   const text = String(message || '').toLowerCase();
@@ -93,11 +73,44 @@ const makeProductReason = (product, message) => {
   const text = String(message || '').toLowerCase();
   const hints = [];
   if (product.category) hints.push(product.category);
-  if (product.colors?.some((color) => text.includes(String(color).toLowerCase()))) hints.push(`có màu ${product.colors.find((color) => text.includes(String(color).toLowerCase()))}`);
+  const matchedColor = product.colors?.find((color) => text.includes(String(color).toLowerCase()));
+  if (matchedColor) hints.push(`có màu ${matchedColor}`);
   if (product.price) hints.push(`giá ${Number(product.price).toLocaleString('vi-VN')}đ`);
+
   return hints.length > 0
     ? `Phù hợp vì ${hints.join(', ')}.`
     : 'Phù hợp với nhu cầu bạn vừa mô tả.';
+};
+
+const buildSystemPrompt = () => `
+Bạn là AI stylist và trợ lý chăm sóc khách hàng cho website thời trang LuxuryWear.
+Nhiệm vụ:
+- Tư vấn chọn đồ, phối outfit, size và màu sắc theo nhu cầu khách.
+- Hỗ trợ tìm sản phẩm trong PRODUCT_CONTEXT.
+- Không bịa sản phẩm, chính sách hoặc khuyến mãi ngoài dữ liệu được cung cấp.
+- Trả lời bằng tiếng Việt tự nhiên.
+- Chỉ viết 2 câu ngắn, tối đa 280 ký tự.
+- Không liệt kê tên sản phẩm chi tiết vì hệ thống sẽ hiển thị sản phẩm riêng bên dưới.
+`;
+
+const buildUserPrompt = ({ message, history, products }) => `
+CHAT_HISTORY:
+${JSON.stringify(history.slice(-MAX_HISTORY_MESSAGES))}
+
+PRODUCT_CONTEXT:
+${JSON.stringify(products)}
+
+CUSTOMER_MESSAGE:
+${message}
+`;
+
+const buildLocalFallbackReply = (message, products) => {
+  const intent = inferIntent(message);
+  const firstCategory = products[0]?.category || 'sản phẩm phù hợp';
+  if (intent === 'size') return 'Bạn cho mình thêm chiều cao, cân nặng và form mặc thích rộng hay vừa nhé. Trước mắt mình gợi ý vài sản phẩm có size và tồn kho dễ chọn bên dưới.';
+  if (intent === 'search') return `Mình đã lọc nhanh các ${firstCategory} gần với nhu cầu của bạn. Bạn có thể bấm vào từng sản phẩm để xem màu, size và tồn kho chi tiết.`;
+  if (intent === 'policy') return 'Mình có thể hỗ trợ tìm sản phẩm, chọn size, phối đồ và áp voucher. Với chính sách cụ thể, bạn nên kiểm tra lại thông tin trên trang đơn hàng hoặc liên hệ shop.';
+  return `Mình gợi ý bạn bắt đầu với ${firstCategory}, sau đó phối thêm item cùng tông màu để outfit gọn và dễ mặc hơn. Một vài sản phẩm phù hợp đang ở bên dưới.`;
 };
 
 export const chatWithStylist = async (req, res, next) => {
@@ -109,9 +122,20 @@ export const chatWithStylist = async (req, res, next) => {
 
     const allProducts = await Product.findAll(null, req.user?.id || null);
     const products = selectRelevantProducts(allProducts, cleanMessage);
-    const prompt = buildStylistPrompt({ message: cleanMessage, history, products });
-    const { text, model } = await generateWithGeminiFallback({ prompt, temperature: 0.35 });
+    const messages = [
+      { role: 'system', content: buildSystemPrompt() },
+      { role: 'user', content: buildUserPrompt({ message: cleanMessage, history, products }) }
+    ];
 
+    let aiText = '';
+    let usedModel = 'local-fallback';
+    try {
+      const generated = await generateWithOpenRouterFallback({ messages, temperature: 0.35 });
+      aiText = generated.text;
+      usedModel = generated.model;
+    } catch (error) {
+      aiText = buildLocalFallbackReply(cleanMessage, products);
+    }
     const productMap = new Map(allProducts.map((product) => [Number(product.id), product]));
     const recommendedProducts = products
       .slice(0, 5)
@@ -127,15 +151,14 @@ export const chatWithStylist = async (req, res, next) => {
           reason: makeProductReason(item, cleanMessage)
         };
       })
-      .filter(Boolean)
-      .slice(0, 5);
+      .filter(Boolean);
 
     return sendResponse(res, 200, true, 'AI đã tạo gợi ý tư vấn', {
-      reply: text || 'Mình đã tìm được một vài gợi ý phù hợp cho bạn.',
+      reply: aiText || buildLocalFallbackReply(cleanMessage, products),
       intent: inferIntent(cleanMessage),
       suggested_queries: buildSuggestedQueries(products, cleanMessage),
       recommended_products: recommendedProducts,
-      model
+      model: usedModel
     });
   } catch (error) {
     next(error);
